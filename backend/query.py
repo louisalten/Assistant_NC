@@ -62,15 +62,68 @@ async def query_documents_with_context(query_text: str, form_data: dict, current
     
     print(f"RAG: Sources construites pour le client: {sources_for_client}")
 
-    # 4. Formatage du contexte pour le LLM (basé sur retrieved_docs)
+    # 4. Formatage du contexte pour le LLM (contexte NC actuelle + retrieved_docs)
     context_to_pass_to_llm = [] # Initialisation
+    
+    # 4.1. Ajout du contexte de la NC actuelle en premier (TOUJOURS INCLUS)
+    current_nc_context_parts = ["=== CONTEXTE DE LA NON-CONFORMITÉ ACTUELLE ==="]
+    
+    # Ajouter la description initiale si disponible
+    if form_data and form_data.get('d0_initialisation', {}).get('descriptionInitiale'):
+        desc_initiale = form_data['d0_initialisation']['descriptionInitiale']
+        current_nc_context_parts.append(f"Description du problème (D0): {desc_initiale}")
+    
+    # Ajouter le contexte de la section actuelle
+    if current_section_data:
+        current_nc_context_parts.append(f"Données de la section actuelle ({current_section_name}):")
+        for key, value in current_section_data.items():
+            if value and key != 'id':
+                current_nc_context_parts.append(f"  - {key}: {value}")
+    
+    # Ajouter d'autres sections pertinentes du formulaire 8D si disponibles
+    if form_data:
+        # Équipe D1
+        if form_data.get('d1_team') and any(form_data['d1_team'].values()):
+            current_nc_context_parts.append("Équipe constituée (D1):")
+            for key, value in form_data['d1_team'].items():
+                if value:
+                    current_nc_context_parts.append(f"  - {key}: {value}")
+        
+        # QQOQCCP D2
+        if form_data.get('d2_qqoqccp') and any(form_data['d2_qqoqccp'].values()):
+            current_nc_context_parts.append("Analyse QQOQCCP (D2):")
+            for key, value in form_data['d2_qqoqccp'].items():
+                if value and key != 'id':
+                    current_nc_context_parts.append(f"  - {key}: {value}")
+        
+        # Actions curatives D3
+        if form_data.get('d3_actions') and any(form_data['d3_actions'].values()):
+            current_nc_context_parts.append("Actions curatives (D3):")
+            for key, value in form_data['d3_actions'].items():
+                if value and key != 'id':
+                    current_nc_context_parts.append(f"  - {key}: {value}")
+    
+    current_nc_context_parts.append("=== FIN CONTEXTE NC ACTUELLE ===\n")
+    
+    # Créer le document de contexte NC actuelle
+    current_nc_context_doc = Document(
+        page_content="\n".join(current_nc_context_parts),
+        metadata={"source": "current_nc", "type": "context"}
+    )
+    context_to_pass_to_llm.append(current_nc_context_doc)
+    
+    # 4.2. Ajout des documents similaires récupérés
     if retrieved_docs:
-        print(f"RAG: Formatage du contexte pour le LLM à partir de {len(retrieved_docs)} documents.")
-        temp_formatted_docs = []
+        print(f"RAG: Formatage du contexte pour le LLM à partir de {len(retrieved_docs)} documents similaires.")
+        context_to_pass_to_llm.append(Document(
+            page_content="=== EXEMPLES DE NON-CONFORMITÉS SIMILAIRES ===",
+            metadata={"source": "separator", "type": "separator"}
+        ))
+        
         for i, doc_to_format in enumerate(retrieved_docs):
             if not hasattr(doc_to_format, 'metadata'):
                 if hasattr(doc_to_format, 'page_content') and doc_to_format.page_content:
-                    temp_formatted_docs.append(Document(page_content=doc_to_format.page_content, metadata={}))
+                    context_to_pass_to_llm.append(Document(page_content=doc_to_format.page_content, metadata={}))
                 continue
 #Quelle partie spécifique du document doit on envoyé en fonction de l'étape actuelle  
             nc_id_ctx = doc_to_format.metadata.get("id_non_conformite", "Non spécifié")
@@ -87,28 +140,26 @@ async def query_documents_with_context(query_text: str, form_data: dict, current
             
             formatted_page_content_for_llm = "\n".join(single_doc_context_parts) + "\n--- Fin Document Pertinent ---\n"
             
-            temp_formatted_docs.append(
+            context_to_pass_to_llm.append(
                 Document(page_content=formatted_page_content_for_llm, metadata=doc_to_format.metadata)
             )
-        context_to_pass_to_llm = temp_formatted_docs # Assigne la liste formatée
-            
-    if not context_to_pass_to_llm:
-        print("RAG: Aucun contexte de document à passer au LLM, utilisation d'un message par défaut.")
-        context_to_pass_to_llm = [Document(page_content="Information contextuelle non disponible.")]
+    else:
+        print("RAG: Aucun document similaire récupéré.")
+        context_to_pass_to_llm.append(Document(
+            page_content="=== AUCUN EXEMPLE SIMILAIRE TROUVÉ ===\nAucune non-conformité similaire n'a été trouvée dans la base de données.",
+            metadata={"source": "no_similar", "type": "info"}
+        ))
 
-    # 5. Préparation chaîne LLM
-    # llm = ChatOllama(model="qwen3:14b", num_ctx=16384, temperature=0.7, base_url=ollama_endpoint, top_k=20, top_p=0.80)
-    #Thinking mode:
+    # 5. Préparation chaîne LLM avec mode thinking réactivé
     llm = ChatOllamaWithThinking(
-    model="qwen3:14b",
-    num_ctx=16384,
-    temperature=0.7,
-    base_url=ollama_endpoint,
-    top_k=20,
-    top_p=0.95,
-    thinking_mode=True  # ou False
-)
-    # llm = ChatOllama(model="qwen3:14b", num_ctx=16384, temperature=0.7, base_url=ollama_endpoint, top_k=20, top_p=0.95, thinking_mode=True)
+        model="qwen3:14b",
+        num_ctx=16384,
+        temperature=0.7,
+        base_url=ollama_endpoint,
+        top_k=20,
+        top_p=0.95,
+        thinking_mode=True
+    )
 
     selected_prompt = detect_prompt(query_text, step=current_section_name if 'step' in detect_prompt.__code__.co_varnames else None)
 

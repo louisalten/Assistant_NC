@@ -27,21 +27,24 @@ def get_relevant_documents(
     C'est la fonction centralisée pour le retrieval.
     """
     
-    # 1. Construction de la requête enrichie pour le retriever
-    if not query_text.strip() and form_data: # On vérifie si form_data est fourni
+    # 1. Construction de la requête enrichie pour le retriever (SANS la question utilisateur)
+    # La requête pour le retriever se base UNIQUEMENT sur le contexte du formulaire 8D
+    if form_data: 
         description_nc_initiale = form_data.get('d0_initialisation', {}).get('descriptionInitiale', '')
         if description_nc_initiale:
             enriched_query = f"Analyse de la non-conformité : {description_nc_initiale}"
         else:
             enriched_query = f"Analyse du formulaire 8D, section {current_section_name}"
     else:
-        enriched_query = query_text
-        if current_section_data:
-            context_fields_text = ' '.join([str(v) for k, v in current_section_data.items() if v and k != 'id'])
-            if context_fields_text:
-                enriched_query += f" (contexte de {current_section_name}: {context_fields_text})"
+        enriched_query = f"Analyse du formulaire 8D, section {current_section_name}"
     
-    print(f"[RETRIEVAL] Requête enrichie: '{enriched_query}'")
+    # Enrichissement avec les données de la section actuelle
+    if current_section_data:
+        context_fields_text = ' '.join([str(v) for k, v in current_section_data.items() if v and k != 'id'])
+        if context_fields_text:
+            enriched_query += f" (contexte de {current_section_name}: {context_fields_text})"
+    
+    print(f"[RETRIEVAL] Requête enrichie (SANS question utilisateur): '{enriched_query}'")
 
     # 2. Récupération
     vectorstore = get_vectorstore(model_key=model_key)
