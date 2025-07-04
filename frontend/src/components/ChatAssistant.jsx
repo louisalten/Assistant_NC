@@ -2,10 +2,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useForm8D } from '../contexts/Form8DContext';
 import { COLORS } from '../colors';
-import { Box, Paper, Avatar, Typography, TextField, IconButton, CircularProgress, Snackbar, MenuItem, Select, FormControl, InputLabel } from '@mui/material';
+import { Box, Paper, Avatar, Typography, TextField, IconButton, CircularProgress, Snackbar, MenuItem, Select, FormControl, InputLabel, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import StopIcon from '@mui/icons-material/Stop';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { v4 as uuidv4 } from 'uuid'; // Pour des IDs uniques
+import ReactMarkdown from 'react-markdown';
 
 function ChatAssistant() {
   const [messages, setMessages] = useState([
@@ -38,6 +40,16 @@ function ChatAssistant() {
   }, [chatMode]);
 
   const handleInputChange = (e) => setUserInput(e.target.value);
+
+  // Helper pour parser la réponse du bot en sections (think/réponse)
+  function parseBotResponse(rawText) {
+    // Cherche <think>...</think>
+    const thinkRegex = /<think>([\s\S]*?)<\/think>/i;
+    const thinkMatch = rawText.match(thinkRegex);
+    let think = thinkMatch ? thinkMatch[1].trim() : null;
+    let response = rawText.replace(thinkRegex, '').trim();
+    return { think, response };
+  }
 
   const handleSendMessage = async (event) => {
     if (event) event.preventDefault();
@@ -151,11 +163,32 @@ function ChatAssistant() {
 
           // Mettre à jour la bulle de réponse du bot existante
           if (dataChunk.response !== undefined) {
-            setMessages(prev => 
-              prev.map(m => 
-                m.id === botMessageId ? { ...m, text: dataChunk.response, isLoading: !dataChunk.done } : m
-              )
-            );
+            const { think, response } = parseBotResponse(dataChunk.response);
+            setMessages(prev => {
+              let newMsgs = [...prev];
+              // Stream la réflexion (concatène si déjà partielle)
+              if (think !== null) {
+                const thinkIdx = newMsgs.findIndex(m => m.parentId === botMessageId && m.type === 'think');
+                if (thinkIdx !== -1) {
+                  const prevText = newMsgs[thinkIdx].partialText || '';
+                  newMsgs[thinkIdx] = { ...newMsgs[thinkIdx], partialText: prevText + think, isLoading: !dataChunk.done };
+                } else {
+                  newMsgs.push({ id: uuidv4(), partialText: think, sender: 'bot', type: 'think', parentId: botMessageId, isLoading: !dataChunk.done });
+                }
+              }
+              // Stream la réponse principale (concatène si déjà partielle)
+              if (response !== null) {
+                const respIdx = newMsgs.findIndex(m => m.parentId === botMessageId && m.type === 'response');
+                if (respIdx !== -1) {
+                  const prevText = newMsgs[respIdx].partialText || '';
+                  newMsgs[respIdx] = { ...newMsgs[respIdx], partialText: prevText + response, isLoading: !dataChunk.done };
+                } else if (response !== '') {
+                  newMsgs.push({ id: uuidv4(), partialText: response, sender: 'bot', type: 'response', parentId: botMessageId, isLoading: !dataChunk.done });
+                }
+              }
+              // Met à jour la bulle de chargement
+              return newMsgs.map(m => m.id === botMessageId ? { ...m, isLoading: !dataChunk.done } : m);
+            });
           }
 
           // Gérer le chunk final avec "done"
@@ -163,6 +196,20 @@ function ChatAssistant() {
             console.log('[CHAT ASSISTANT] Chunk final "done" reçu:', dataChunk);
             // S'assurer que la bulle de réponse principale est finalisée
             setMessages(prev => prev.map(m => m.id === botMessageId ? { ...m, isLoading: false } : m));
+
+            // Quand done, on remplace partialText par text définitif
+            setMessages(prev => prev.map(m => {
+              if (m.parentId === botMessageId && m.type === 'think' && m.partialText) {
+                return { ...m, text: m.partialText, partialText: undefined, isLoading: false };
+              }
+              if (m.parentId === botMessageId && m.type === 'response' && m.partialText) {
+                return { ...m, text: m.partialText, partialText: undefined, isLoading: false };
+              }
+              if (m.id === botMessageId) {
+                return { ...m, isLoading: false };
+              }
+              return m;
+            }));
 
             // Ajouter la bulle des sources si des sources existent
             if (dataChunk.sources && Array.isArray(dataChunk.sources) && dataChunk.sources.length > 0) {
@@ -242,160 +289,138 @@ function ChatAssistant() {
   };
 
   return (
-    <Paper elevation={3} sx={{
-      p: { xs: 1, sm: 2 },
-      bgcolor: COLORS.background,
-      borderRadius: 4,
-      height: '100%',
-      display: 'flex',
-      flexDirection: 'column',
-      boxShadow: '0 4px 24px 0 rgba(35,57,93,0.10)',
-      border: `1.5px solid ${COLORS.primaryDark}20`
-    }}>
-      {/* Menu déroulant pour choisir le mode */}
-      <FormControl size="small" sx={{ mb: 1, minWidth: 120, bgcolor: COLORS.white, borderRadius: 2, boxShadow: '0 1px 4px #e3eafc' }}>
-        <InputLabel id="chat-mode-label" sx={{ color: COLORS.primaryDark, fontWeight: 600 }}>Mode</InputLabel>
-        <Select
-          labelId="chat-mode-label"
-          id="chat-mode-select"
-          value={chatMode}
-          label="Mode"
-          onChange={e => setChatMode(e.target.value)}
-          sx={{ color: COLORS.primaryDark, bgcolor: COLORS.white, '& .MuiSelect-icon': { color: COLORS.primaryDark } }}
-        >
-          <MenuItem value="CHAT" sx={{ color: COLORS.primaryDark }}>Chat</MenuItem>
-          <MenuItem value="REQ" sx={{ color: COLORS.accentGreen }}>Requête (sources)</MenuItem>
-        </Select>
-      </FormControl>
-      <Box sx={{ flex: 1, overflowY: 'auto', mb: 2, p:1, background: '#f7fafd', borderRadius: 2 }} ref={chatMessagesRef}>
-        {messages.map((msg) => (
-          <Box 
-            key={msg.id} 
-            sx={{ 
-              display: 'flex', 
-              mb: 1.5, 
-              flexDirection: msg.sender === 'user' ? 'row-reverse' : 'row', 
-              alignItems: 'flex-end'
-            }}
+    <>
+      <Paper elevation={3} sx={{
+        p: { xs: 1, sm: 2 },
+        bgcolor: COLORS.background,
+        borderRadius: 4,
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        boxShadow: '0 4px 24px 0 rgba(35,57,93,0.10)',
+        border: `1.5px solid ${COLORS.primaryDark}20`
+      }}>
+        {/* Menu déroulant pour choisir le mode */}
+        <FormControl size="small" sx={{ mb: 1, minWidth: 120, bgcolor: COLORS.white, borderRadius: 2, boxShadow: '0 1px 4px #e3eafc' }}>
+          <InputLabel id="chat-mode-label" sx={{ color: COLORS.primaryDark, fontWeight: 600 }}>Mode</InputLabel>
+          <Select
+            labelId="chat-mode-label"
+            id="chat-mode-select"
+            value={chatMode}
+            label="Mode"
+            onChange={e => setChatMode(e.target.value)}
+            sx={{ color: COLORS.primaryDark, bgcolor: COLORS.white, '& .MuiSelect-icon': { color: COLORS.primaryDark } }}
           >
-            <Avatar 
-              sx={{ 
-                bgcolor: msg.sender === 'user' ? COLORS.primaryDark : 
-                         (msg.sender === 'error' ? COLORS.error : 
-                         (msg.sender === 'system' ? COLORS.accentGreen : COLORS.accentBlue)), 
-                color: COLORS.white,
-                ml: msg.sender === 'user' ? 1 : 0, 
-                mr: msg.sender === 'user' ? 0 : 1,
-                width: 32, height: 32, fontSize: '0.8rem',
-                boxShadow: '0 1px 4px #e3eafc'
-              }}
-            >
-              {msg.sender === 'user' ? 'U' : (msg.sender === 'error' ? 'E' : (msg.sender === 'system' ? 'S' : 'A'))}
-            </Avatar>
-            <Box 
-              sx={{
-                bgcolor: msg.sender === 'user' ? COLORS.primaryDark : 
-                         (msg.sender === 'error' ? '#ffeaea' : 
-                         (msg.sender === 'system' ? '#e6f7ef' : '#eaf1fb')),
-                color: msg.sender === 'user' ? COLORS.white : (msg.sender === 'error' ? COLORS.error : (msg.sender === 'system' ? '#218c5a' : COLORS.primaryDark)),
-                p: 1.5, 
-                borderRadius: msg.sender === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                maxWidth: '75%', 
-                boxShadow: '0 2px 8px #e3eafc',
-                position: 'relative',
-                wordBreak: 'break-word',
-                border: msg.sender === 'user' ? 'none' : '1px solid #e3eafc',
-                fontSize: '1.08rem',
-                fontWeight: 500
-              }}
-            >
-              {msg.isLoading && msg.sender === 'bot' && (
-                <CircularProgress 
-                  size={16} 
-                  sx={{ 
-                    position: 'absolute', 
-                    top: '50%', 
-                    left: '50%', 
-                    marginTop: '-8px', 
-                    marginLeft: '-8px',
-                    color: COLORS.primaryDark
-                  }} 
-                />
-              )}
-              {msg.htmlText ? 
-                <div dangerouslySetInnerHTML={{ __html: msg.htmlText }} /> 
-                : 
-                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: 'inherit' }}>{msg.text}</Typography>
-              }
-              {msg.isSuggestion && msg.suggestionDetails && (
-                <button
-                  onClick={() => applyFieldSuggestion(msg.suggestionDetails.section, msg.suggestionDetails.field, msg.suggestionDetails.value)}
-                  style={{ 
-                    display: 'block', 
-                    marginTop: '10px', 
-                    padding: '6px 12px', 
-                    fontSize: '0.875rem', 
-                    cursor: 'pointer', 
-                    backgroundColor: COLORS.accentGreen,
-                    color: COLORS.white, 
-                    border: 'none', 
-                    borderRadius: '4px',
-                    boxShadow: '0 2px 2px 0 rgba(0,0,0,0.10)'
-                  }}
-                >
-                  Appliquer la Suggestion
-                </button>
-              )}
-            </Box>
-          </Box>
-        ))}
-        <div ref={messagesEndRef} />
-      </Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pt:1, borderTop: '1px solid', borderColor: '#e3eafc', background: COLORS.white, borderRadius: 2, boxShadow: '0 1px 4px #e3eafc' }}>
-        {chatMode === 'CHAT' ? (
-          <>
-            <TextField
-              fullWidth
-              placeholder="Posez votre question..."
-              value={userInput}
-              onChange={handleInputChange}
-              onKeyDown={e => {if (e.key === 'Enter' && !e.shiftKey) { handleSendMessage(e); e.preventDefault();}}}
-              disabled={isOverallLoading}
-              size="small"
-              variant="outlined"
-              sx={{ bgcolor: COLORS.white, borderRadius: 2 }}
-            />
-            <IconButton sx={{ bgcolor: COLORS.primaryDark, color: COLORS.white, '&:hover': { bgcolor: COLORS.accentBlue }, boxShadow: '0 1px 4px #e3eafc' }} onClick={handleSendMessage} disabled={isOverallLoading || !userInput.trim()}>
-              {isOverallLoading ? <CircularProgress size={24} /> : <SendIcon />}
+            <MenuItem value="CHAT" sx={{ color: COLORS.primaryDark }}>Chat</MenuItem>
+            <MenuItem value="REQ" sx={{ color: COLORS.accentGreen }}>Requête (sources)</MenuItem>
+          </Select>
+        </FormControl>
+        <Box sx={{ flex: 1, overflowY: 'auto', mb: 2, p:1, background: '#f7fafd', borderRadius: 2 }} ref={chatMessagesRef}>
+          {messages.map((msg, idx) => {
+            // Accordéon pour chaque bulle
+            if (msg.type === 'think' || msg.type === 'response') {
+              // On stream le contenu dans la même bulle
+              return (
+                <Accordion key={msg.id} defaultExpanded={true} sx={{ mb: 1.5, boxShadow: '0 1px 4px #e3eafc', borderRadius: 2 }}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: msg.type === 'think' ? '#eaf1fb' : '#e6f7ef', color: COLORS.primaryDark }}>
+                    <Avatar sx={{ bgcolor: msg.type === 'think' ? COLORS.accentBlue : COLORS.accentGreen, color: COLORS.white, mr: 1, width: 32, height: 32, fontSize: '0.8rem', boxShadow: '0 1px 4px #e3eafc' }}>{msg.type === 'think' ? '🤔' : 'A'}</Avatar>
+                    <Typography variant="body2" sx={{ color: COLORS.primaryDark, fontWeight: 500, ml: 1 }}>{msg.type === 'think' ? "Réflexion de l'assistant" : "Réponse de l'assistant"}</Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <ReactMarkdown>{msg.partialText || msg.text}</ReactMarkdown>
+                    {msg.isLoading && (
+                      <CircularProgress size={16} sx={{ position: 'absolute', top: '10px', left: '10px', color: COLORS.primaryDark }} />
+                    )}
+                  </AccordionDetails>
+                </Accordion>
+              );
+            }
+            if (msg.isSourceBubble) {
+              return (
+                <Accordion key={msg.id} defaultExpanded={true} sx={{ mb: 1.5, boxShadow: '0 1px 4px #e3eafc', borderRadius: 2 }}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: '#eaf1fb', color: COLORS.primaryDark }}>
+                    <Avatar sx={{ bgcolor: COLORS.accentBlue, color: COLORS.white, mr: 1, width: 32, height: 32, fontSize: '0.8rem', boxShadow: '0 1px 4px #e3eafc' }}>S</Avatar>
+                    <Typography variant="body2" sx={{ color: COLORS.primaryDark, fontWeight: 500, ml: 1 }}>Sources</Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <div dangerouslySetInnerHTML={{ __html: msg.htmlText }} />
+                  </AccordionDetails>
+                </Accordion>
+              );
+            }
+            // Accordéon pour utilisateur, erreur, suggestion, etc.
+            return (
+              <Accordion key={msg.id} defaultExpanded={true} sx={{ mb: 1.5, boxShadow: '0 1px 4px #e3eafc', borderRadius: 2 }}>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: msg.sender === 'user' ? COLORS.primaryDark : (msg.sender === 'error' ? '#ffeaea' : (msg.sender === 'system' ? '#e6f7ef' : '#eaf1fb')), color: msg.sender === 'user' ? COLORS.white : (msg.sender === 'error' ? COLORS.error : (msg.sender === 'system' ? '#218c5a' : COLORS.primaryDark)) }}>
+                  <Avatar sx={{ bgcolor: msg.sender === 'user' ? COLORS.primaryDark : (msg.sender === 'error' ? COLORS.error : (msg.sender === 'system' ? COLORS.accentGreen : COLORS.accentBlue)), color: COLORS.white, ml: msg.sender === 'user' ? 1 : 0, mr: msg.sender === 'user' ? 0 : 1, width: 32, height: 32, fontSize: '0.8rem', boxShadow: '0 1px 4px #e3eafc' }}>
+                    {msg.sender === 'user' ? 'U' : (msg.sender === 'error' ? 'E' : (msg.sender === 'system' ? 'S' : 'A'))}
+                  </Avatar>
+                  <Typography variant="body2" sx={{ color: 'inherit', fontWeight: 500, ml: 1 }}>
+                    {msg.sender === 'user' ? 'Utilisateur' : (msg.sender === 'error' ? 'Erreur' : (msg.sender === 'system' ? 'Système' : 'Assistant'))}
+                  </Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  {msg.isLoading && msg.sender === 'bot' && (
+                    <CircularProgress size={16} sx={{ position: 'absolute', top: '10px', left: '10px', color: COLORS.primaryDark }} />
+                  )}
+                  {msg.htmlText ? <div dangerouslySetInnerHTML={{ __html: msg.htmlText }} /> : <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: 'inherit' }}>{msg.text}</Typography>}
+                  {msg.isSuggestion && msg.suggestionDetails && (
+                    <button onClick={() => applyFieldSuggestion(msg.suggestionDetails.section, msg.suggestionDetails.field, msg.suggestionDetails.value)} style={{ display: 'block', marginTop: '10px', padding: '6px 12px', fontSize: '0.875rem', cursor: 'pointer', backgroundColor: COLORS.accentGreen, color: COLORS.white, border: 'none', borderRadius: '4px', boxShadow: '0 2px 2px 0 rgba(0,0,0,0.10)' }}>
+                      Appliquer la Suggestion
+                    </button>
+                  )}
+                </AccordionDetails>
+              </Accordion>
+            );
+          })}
+          <div ref={messagesEndRef} />
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pt:1, borderTop: '1px solid', borderColor: '#e3eafc', background: COLORS.white, borderRadius: 2, boxShadow: '0 1px 4px #e3eafc' }}>
+          {chatMode === 'CHAT' ? (
+            <>
+              <TextField
+                fullWidth
+                placeholder="Posez votre question..."
+                value={userInput}
+                onChange={handleInputChange}
+                onKeyDown={e => {if (e.key === 'Enter' && !e.shiftKey) { handleSendMessage(e); e.preventDefault();}}}
+                disabled={isOverallLoading}
+                size="small"
+                variant="outlined"
+                sx={{ bgcolor: COLORS.white, borderRadius: 2 }}
+              />
+              <IconButton sx={{ bgcolor: COLORS.primaryDark, color: COLORS.white, '&:hover': { bgcolor: COLORS.accentBlue }, boxShadow: '0 1px 4px #e3eafc' }} onClick={handleSendMessage} disabled={isOverallLoading || !userInput.trim()}>
+                {isOverallLoading ? <CircularProgress size={24} /> : <SendIcon />}
+              </IconButton>
+            </>
+          ) : (
+            <>
+              <button
+                style={{
+                  background: COLORS.accentBlue, color: COLORS.white, border: 'none', borderRadius: 8, padding: '0.7rem 1.5rem', fontWeight: 600, fontSize: '1rem', cursor: 'pointer', boxShadow: '0 2px 8px #e3eafc'
+                }}
+                disabled={isOverallLoading}
+                onClick={() => handleSendMessage({ preventDefault: () => {} })}
+              >
+                {isOverallLoading ? 'Recherche...' : 'Rechercher des NC similaires'}
+              </button>
+            </>
+          )}
+          {isOverallLoading && (
+            <IconButton sx={{ bgcolor: COLORS.white, color: COLORS.error, border: '1px solid', borderColor: COLORS.error, ml: 1, boxShadow: '0 1px 4px #e3eafc' }} onClick={handleStopGeneration} title="Arrêter la génération">
+              <StopIcon />
             </IconButton>
-          </>
-        ) : (
-          <>
-            <button
-              style={{
-                background: COLORS.accentBlue, color: COLORS.white, border: 'none', borderRadius: 8, padding: '0.7rem 1.5rem', fontWeight: 600, fontSize: '1rem', cursor: 'pointer', boxShadow: '0 2px 8px #e3eafc'
-              }}
-              disabled={isOverallLoading}
-              onClick={() => handleSendMessage({ preventDefault: () => {} })}
-            >
-              {isOverallLoading ? 'Recherche...' : 'Rechercher des NC similaires'}
-            </button>
-          </>
-        )}
-        {isOverallLoading && (
-          <IconButton sx={{ bgcolor: COLORS.white, color: COLORS.error, border: '1px solid', borderColor: COLORS.error, ml: 1, boxShadow: '0 1px 4px #e3eafc' }} onClick={handleStopGeneration} title="Arrêter la génération">
-            <StopIcon />
-          </IconButton>
-        )}
-      </Box>
-      <Snackbar 
-        open={!!error} 
-        message={error} 
-        autoHideDuration={6000} 
-        onClose={() => setError(null)} 
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      />
-    </Paper>
+          )}
+        </Box>
+        <Snackbar 
+          open={!!error} 
+          message={error} 
+          autoHideDuration={6000} 
+          onClose={() => setError(null)} 
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        />
+      </Paper>
+    </>
   );
 }
 export default ChatAssistant;
