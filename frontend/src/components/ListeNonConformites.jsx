@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { COLORS } from '../colors';
+import ChatHistoryViewer from './ChatHistoryViewer';
 
 function useQuery() {
   return new URLSearchParams(useLocation().search);
@@ -8,6 +9,8 @@ function useQuery() {
 
 function ListeNonConformites() {
   const [nonConformites, setNonConformites] = useState([]);
+  const [chatHistoryOpen, setChatHistoryOpen] = useState(false);
+  const [selectedNCId, setSelectedNCId] = useState(null);
   const query = useQuery();
   const navigate = useNavigate();
   const statut = query.get('statut');
@@ -71,6 +74,23 @@ function ListeNonConformites() {
                 }}>
                   Voir / Modifier
                 </button>
+                <button onClick={() => {
+                  setSelectedNCId(nc.id);
+                  setChatHistoryOpen(true);
+                }} style={{
+                  marginLeft: 8,
+                  background: COLORS.textBlue,
+                  color: COLORS.black,
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '6px 16px',
+                  cursor: 'pointer',
+                  fontWeight: 500,
+                  transition: 'background 0.2s',
+                  boxShadow: '0 1px 4px rgba(35,57,93,0.07)'
+                }}>
+                  Voir Chat
+                </button>
                 <button onClick={async () => {
                   if(window.confirm('Supprimer cette non-conformité ?')) {
                     await fetch(`http://localhost:8000/api/nonconformites/${nc.id}`, { method: 'DELETE' });
@@ -98,6 +118,16 @@ function ListeNonConformites() {
       <button onClick={() => navigate('/dashboard')} style={{ marginTop: '2rem', background: COLORS.textGreen, color: COLORS.white, border: 'none', borderRadius: '6px', padding: '10px 24px', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s', boxShadow: '0 2px 8px rgba(35,57,93,0.08)' }}>
         Retour au Dashboard
       </button>
+      
+      {/* Modal pour l'historique de chat */}
+      <ChatHistoryViewer 
+        ncId={selectedNCId}
+        open={chatHistoryOpen}
+        onClose={() => {
+          setChatHistoryOpen(false);
+          setSelectedNCId(null);
+        }}
+      />
     </div>
   );
 }

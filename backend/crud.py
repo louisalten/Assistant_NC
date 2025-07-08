@@ -102,3 +102,94 @@ def create_membre(db: Session, membre: schemas.MembreEquipeCreate):
     db.commit()
     db.refresh(db_membre)
     return db_membre
+
+# === Fonctions CRUD pour ChatMessage ===
+
+def create_chat_message(db: Session, message: schemas.ChatMessageCreate) -> models.ChatMessage:
+    """Créer un nouveau message de chat"""
+    try:
+        # Créer le message directement avec les données
+        db_message = models.ChatMessage(
+            nonconformite_id=message.nonconformite_id,
+            message_id=message.message_id,
+            conversation_id=message.conversation_id,
+            sender=message.sender,
+            message_type=message.message_type,
+            content=message.content,
+            html_content=message.html_content,
+            step_context=message.step_context,
+            is_suggestion=message.is_suggestion
+        )
+        db.add(db_message)
+        db.commit()
+        db.refresh(db_message)
+        return db_message
+    except Exception as e:
+        print(f"❌ Erreur CRUD create_chat_message: {str(e)}")
+        db.rollback()
+        raise
+
+def get_chat_messages_by_nc(db: Session, nc_id: int) -> List[models.ChatMessage]:
+    """Récupérer tous les messages de chat pour une non-conformité"""
+    return db.query(models.ChatMessage).filter(
+        models.ChatMessage.nonconformite_id == nc_id
+    ).order_by(models.ChatMessage.timestamp.asc()).all()
+
+def get_chat_message(db: Session, message_id: int) -> Optional[models.ChatMessage]:
+    """Récupérer un message de chat par son ID"""
+    return db.query(models.ChatMessage).filter(models.ChatMessage.id == message_id).first()
+
+def delete_chat_message(db: Session, message_id: int) -> bool:
+    """Supprimer un message de chat"""
+    db_message = db.query(models.ChatMessage).filter(models.ChatMessage.id == message_id).first()
+    if db_message:
+        db.delete(db_message)
+        db.commit()
+        return True
+    return False
+
+def clear_chat_history_for_nc(db: Session, nc_id: int) -> bool:
+    """Effacer tout l'historique de chat pour une non-conformité"""
+    deleted_count = db.query(models.ChatMessage).filter(
+        models.ChatMessage.nonconformite_id == nc_id
+    ).delete()
+    db.commit()
+    return deleted_count > 0
+
+def get_chat_history(db: Session, nc_id: int):
+    """Récupérer l'historique des messages pour une NC"""
+    return db.query(models.ChatMessage).filter(
+        models.ChatMessage.nonconformite_id == nc_id
+    ).order_by(models.ChatMessage.timestamp.asc()).all()
+
+def delete_chat_history(db: Session, nc_id: int):
+    """Supprimer l'historique des messages pour une NC"""
+    db.query(models.ChatMessage).filter(
+        models.ChatMessage.nonconformite_id == nc_id
+    ).delete()
+    db.commit()
+    return True
+
+def save_chat_conversation(db: Session, nc_id: int, messages: List[dict]):
+    """Sauvegarder une conversation complète pour une NC"""
+    # Optionnel : supprimer les anciens messages de cette conversation
+    # pour éviter les doublons si on sauvegarde plusieurs fois
+    
+    for msg_data in messages:
+        if msg_data.get('sender') == 'bot' and not msg_data.get('text', '').strip():
+            continue  # Skip les messages vides
+            
+        chat_message = schemas.ChatMessageCreate(
+            nonconformite_id=nc_id,
+            message_id=msg_data.get('id', ''),
+            conversation_id=msg_data.get('conversationId', None),
+            sender=msg_data.get('sender', 'unknown'),
+            message_type=msg_data.get('type', None),
+            content=msg_data.get('text', '') or msg_data.get('partialText', ''),
+            html_content=msg_data.get('htmlText', None),
+            step_context=msg_data.get('stepContext', None),
+            is_suggestion='true' if msg_data.get('isSuggestion', False) else 'false'
+        )
+        create_chat_message(db, chat_message)
+    
+    return True

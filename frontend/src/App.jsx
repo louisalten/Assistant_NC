@@ -22,6 +22,7 @@ import ChatAssistant from './components/ChatAssistant';
 import Dashboard from './components/Dashboard'; 
 import ListeNonConformites from './components/ListeNonConformites';
 
+
 import { COLORS } from './colors';
 
 // Assure-toi que ce chemin est correct
@@ -58,28 +59,40 @@ function TabPanel(props) {
 
 // MODIFICATION : Création d'un composant pour l'interface 8D et Chat
 const Form8DAndChatInterface = () => {
-  const { currentStepKey, setCurrentStepKey, setForm8DData } = useForm8D();
+  const { currentStepKey, setCurrentStepKey, setForm8DData, setCurrentNCId } = useForm8D();
   const { id } = useParams();
   const location = useLocation();
 
   useEffect(() => {
+    console.log('[APP] useEffect déclenché - ID:', id, 'Pathname:', location.pathname);
     if (location.pathname === '/') {
       // Réinitialiser le contexte si on est sur la création
       setForm8DData(initialForm8DData);
+      setCurrentNCId(null);
+      console.log('[APP] Contexte réinitialisé pour nouvelle NC');
     } else if (id) {
+      // Définir l'ID de la NC dans le contexte
+      console.log('[APP] Définition du currentNCId:', parseInt(id));
+      setCurrentNCId(parseInt(id));
+      
       // Charger la non-conformité depuis l'API et pré-remplir le contexte
-      fetch(`/api/nonconformites/${id}`)
+      console.log('[APP] Chargement de la NC depuis l\'API...');
+      fetch(`http://127.0.0.1:8000/api/nonconformites/${id}`)
         .then(res => res.json())
         .then(data => {
+          console.log('[APP] Données NC reçues:', data);
           // Harmonisation : injecter toutes les sections telles que reçues du backend
           setForm8DData({
             ...initialForm8DData, // Garantit toutes les clés même si certaines sont absentes
             ...data,              // Ecrase avec les valeurs récupérées du backend
             currentStepKey: 'd0_initialisation',
           });
+        })
+        .catch(error => {
+          console.error('[APP] Erreur lors du chargement de la NC:', error);
         });
     }
-  }, [id, setForm8DData, location.pathname]);
+  }, [id, setForm8DData, setCurrentNCId, location.pathname]);
 
   const activeTabIndex = Math.max(0, tabDefinitions.findIndex(tab => tab.key === currentStepKey));
 
@@ -132,7 +145,7 @@ const Form8DAndChatInterface = () => {
               </Tabs>
             </Box>
           </Paper>
-          <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 0 }}>
+          <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 3 }}>
             {tabDefinitions.map((tab, index) => { // index est nécessaire pour TabPanel
               const FormComponent = tab.component;
               const tabKeyDisplayLabel = tab.label.split(' - ')[0] || tab.key;
@@ -176,6 +189,9 @@ function App() {
 
           {/* Route pour la résolution d'une NC existante */}
           <Route path="/resolution/:id" element={<Form8DAndChatInterface />} />
+          
+          {/* Route de test pour l'historique de chat */}
+
           
           {/* Optionnel: une route pour les URL non trouvées */}
           <Route path="*" element={

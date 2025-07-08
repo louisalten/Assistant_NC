@@ -25,6 +25,7 @@ class NonConformite(Base):
     d7_preventrecurrence = Column(Text)
     d8_congratulate = Column(Text)
     membres = relationship("MembreEquipe", back_populates="nonconformite", cascade="all, delete-orphan")
+    messages_chat = relationship("ChatMessage", back_populates="nonconformite", cascade="all, delete-orphan")
 
 class MembreEquipe(Base):
     __tablename__ = "membres_equipe"
@@ -33,6 +34,23 @@ class MembreEquipe(Base):
     role = Column(String)
     nonconformite_id = Column(Integer, ForeignKey("nonconformites.id"))
     nonconformite = relationship("NonConformite", back_populates="membres")
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+    id = Column(Integer, primary_key=True, index=True)
+    nonconformite_id = Column(Integer, ForeignKey("nonconformites.id"), nullable=False)
+    message_id = Column(String, nullable=False)  # UUID du message frontend
+    conversation_id = Column(String, nullable=True)  # UUID de la conversation
+    sender = Column(String, nullable=False)  # 'user', 'bot', 'system', 'error'
+    message_type = Column(String, nullable=True)  # 'think', 'response', 'source', etc.
+    content = Column(Text, nullable=False)  # Contenu du message
+    html_content = Column(Text, nullable=True)  # Contenu HTML pour les sources
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    step_context = Column(String, nullable=True)  # Étape 8D actuelle (d0, d1, d2, etc.)
+    is_suggestion = Column(String, default='false')  # Pour les suggestions de champs
+    suggestion_data = Column(Text, nullable=True)  # JSON des détails de suggestion
+    
+    nonconformite = relationship("NonConformite", back_populates="messages_chat")
 
 
 # --- Schémas pour MembreEquipe ---
@@ -50,6 +68,29 @@ class MembreEquipeInDB(MembreEquipeBase):
 
     class Config:
         from_attributes = True # Pour Pydantic v2 (remplace orm_mode)
+
+# --- Schémas pour ChatMessage ---
+class ChatMessageBase(BaseModel):
+    message_id: str
+    conversation_id: Optional[str] = None
+    sender: str  # 'user', 'bot', 'system', 'error'
+    message_type: Optional[str] = None  # 'think', 'response', 'source', etc.
+    content: str
+    html_content: Optional[str] = None
+    step_context: Optional[str] = None  # Étape 8D (d0, d1, d2, etc.)
+    is_suggestion: Optional[str] = 'false'
+    suggestion_data: Optional[str] = None  # JSON
+
+class ChatMessageCreate(ChatMessageBase):
+    nonconformite_id: int
+
+class ChatMessageInDB(ChatMessageBase):
+    id: int
+    nonconformite_id: int
+    timestamp: datetime
+
+    class Config:
+        from_attributes = True
 
 # --- Schémas pour NonConformite ---
 # On va créer des sous-modèles Pydantic pour chaque section Dx pour la clarté

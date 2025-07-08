@@ -55,6 +55,7 @@ export const useForm8D = () => useContext(Form8DContext);
 
 export const Form8DProvider = ({ children }) => {
   const [form8DData, setForm8DData] = useState(initialForm8DData);
+  const [currentNCId, setCurrentNCId] = useState(null); // ID de la NC actuelle
 
   const updateFormField = useCallback((sectionKey, fieldName, fieldValue) => {
     console.log("Form8DContext - updateFormField called:", sectionKey, fieldName, fieldValue); // LOG 3
@@ -102,6 +103,8 @@ export const Form8DProvider = ({ children }) => {
     currentStepKey: form8DData.currentStepKey,
     setCurrentStepKey,
     setForm8DData, // Ajout pour accès direct dans App.jsx
+    currentNCId, // Ajout de l'ID de la NC actuelle
+    setCurrentNCId, // Fonction pour mettre à jour l'ID de la NC actuelle
   };
 
   return <Form8DContext.Provider value={value}>{children}</Form8DContext.Provider>;

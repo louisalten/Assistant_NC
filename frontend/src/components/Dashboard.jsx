@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PieChart, Pie, Cell, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line } from 'recharts';
 import { COLORS } from '../colors';
 
 // Palette pour les graphes et stats
@@ -127,17 +127,15 @@ const Dashboard = () => {
         <div style={{ background: COLORS.white, borderRadius: '14px', boxShadow: '0 2px 8px rgba(35,57,93,0.06)', padding: '2rem', minWidth: 340 }}>
           <h3 style={{ textAlign: 'center', color: COLORS.textDark, marginBottom: '1.2rem', fontWeight: 700, letterSpacing: 0.5 }}>Catégorisation des NC</h3>
           <div style={{ textAlign: 'center', fontWeight: 700, fontSize: '2rem', marginBottom: '0.5rem', color: COLORS.primaryDark }}>125</div>
-          <ResponsiveContainer width={300} height={220}>
-            <PieChart>
-              <Pie data={catPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label>
-                {catPieData.map((entry, index) => (
-                  <Cell key={`cat-cell-${index}`} fill={CAT_PIE_COLORS[index % CAT_PIE_COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
+          <PieChart width={300} height={220}>
+            <Pie data={catPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label>
+              {catPieData.map((entry, index) => (
+                <Cell key={`cat-cell-${index}`} fill={CAT_PIE_COLORS[index % CAT_PIE_COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip />
+            <Legend />
+          </PieChart>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           <div style={{ background: COLORS.white, borderRadius: '14px', boxShadow: '0 2px 8px rgba(35,57,93,0.06)', padding: '1.5rem', minWidth: 340 }}>
@@ -180,31 +178,27 @@ const Dashboard = () => {
       <div style={{ display: 'flex', justifyContent: 'center', gap: '2.5rem', flexWrap: 'wrap' }}>
         <div style={{ background: COLORS.white, borderRadius: '14px', boxShadow: '0 2px 8px rgba(35,57,93,0.06)', padding: '2rem', minWidth: 340 }}>
           <h3 style={{ textAlign: 'center', color: COLORS.textDark, marginBottom: '1.2rem', fontWeight: 700, letterSpacing: 0.5 }}>Répartition globale</h3>
-          <ResponsiveContainer width={300} height={220}>
-            <PieChart>
-              <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label>
-                {pieData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
+          <PieChart width={300} height={220}>
+            <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label>
+              {pieData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip />
+            <Legend />
+          </PieChart>
         </div>
         <div style={{ background: COLORS.white, borderRadius: '14px', boxShadow: '0 2px 8px rgba(35,57,93,0.06)', padding: '2rem', minWidth: 440 }}>
           <h3 style={{ textAlign: 'center', color: COLORS.textDark, marginBottom: '1.2rem', fontWeight: 700, letterSpacing: 0.5 }}>Évolution mensuelle</h3>
-          <ResponsiveContainer width={400} height={220}>
-            <BarChart data={barData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="mois" />
-              <YAxis allowDecimals={false} />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="enCours" fill={COLORS.primaryDark} name="En cours" />
-              <Bar dataKey="resolues" fill={COLORS.accentGreen} name="Résolues" />
-            </BarChart>
-          </ResponsiveContainer>
+          <BarChart width={400} height={220} data={barData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="mois" />
+            <YAxis allowDecimals={false} />
+            <Tooltip />
+            <Legend />
+            <Bar dataKey="enCours" fill={COLORS.primaryDark} name="En cours" />
+            <Bar dataKey="resolues" fill={COLORS.accentGreen} name="Résolues" />
+          </BarChart>
         </div>
       </div>
       {/* Filtres et alertes */}
@@ -212,23 +206,10 @@ const Dashboard = () => {
         <button style={{ padding: '0.5rem 1.2rem', borderRadius: 8, border: `1px solid ${COLORS.textDark}`, background: COLORS.white, color: COLORS.textDark, fontWeight: 600, cursor: 'pointer' }}>7 jours</button>
         <button style={{ padding: '0.5rem 1.2rem', borderRadius: 8, border: `1px solid ${COLORS.textDark}`, background: COLORS.white, color: COLORS.textDark, fontWeight: 600, cursor: 'pointer' }}>30 jours</button>
         <button style={{ padding: '0.5rem 1.2rem', borderRadius: 8, border: `1px solid ${COLORS.textDark}`, background: COLORS.white, color: COLORS.textDark, fontWeight: 600, cursor: 'pointer' }}>12 mois</button>
-      </div>
-      <div style={{ background: COLORS.background, borderRadius: '12px', boxShadow: '0 2px 8px rgba(35,57,93,0.08)', padding: '1.2rem', margin: '0 auto 2rem auto', maxWidth: 600 }}>
-        <h4 style={{ color: COLORS.textDark, marginBottom: 8, fontWeight: 700, letterSpacing: 0.5 }}>⚠️ NC en retard à traiter</h4>
-        <ul style={{ margin: 0, paddingLeft: 18 }}>
-          {ncRetard.map((nc, i) => (
-            <li key={i} style={{ marginBottom: 4, fontWeight: 500, color: COLORS.error }}>
-              <b>{nc.id}</b> – {nc.description} (Responsable : {nc.responsable})
-            </li>
-          ))}
-        </ul>
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1.5rem', marginRight: 40 }}>
-        <button style={{ background: COLORS.textDark, color: COLORS.white, border: 'none', borderRadius: 8, padding: '0.7rem 1.5rem', fontWeight: 600, fontSize: '1rem', cursor: 'pointer', boxShadow: '0 2px 8px rgba(26,35,126,0.08)' }} onClick={() => alert('Fonction export PDF à implémenter')}>Exporter le dashboard en PDF</button>
-      </div>
+      </div>  
     </div>
   );
-}
+};
 
 // Card statistique générique
 function StatCard({ color, textColor, icon, label, value }) {
@@ -248,16 +229,19 @@ const catPieData = [
   { name: 'SÉCURITÉ', value: 15 },
   { name: 'AUTRE', value: 5 },
 ];
+
 const top3 = [
   { nom: 'Mathieu', niveau: 4, nc: 32, score: '4,8/5' },
   { nom: 'Kevin', niveau: 4, nc: 23, score: '4,6/5' },
   { nom: 'Paul', niveau: 3, nc: 16, score: '4,2/5' },
 ];
+
 const difficulte = [
   { nom: 'Julien', niveau: 1, nc: 15, score: '1,5/5' },
   { nom: 'Johanna', niveau: 1, nc: 8, score: '1,8/5' },
   { nom: '???', niveau: 1, nc: 5, score: '2/5' },
 ];
+
 // Données mockées pour l'évolution temporelle
 const evolutionData = [
   { mois: 'Jan', ouvertes: 12, cloturees: 8 },
@@ -267,10 +251,6 @@ const evolutionData = [
   { mois: 'Mai', ouvertes: 8, cloturees: 13 },
   { mois: 'Juin', ouvertes: 7, cloturees: 10 },
 ];
-// Données mockées pour les NC en retard
-const ncRetard = [
-  { id: 'NC-039', description: 'Problème de conformité sur lot 2025A', responsable: 'Julien' },
-  { id: 'NC-041', description: 'Retard analyse sécurité', responsable: 'Paul' },
-];
+
 
 export default Dashboard;

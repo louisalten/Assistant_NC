@@ -1,5 +1,5 @@
 // src/components/ChatAssistant.jsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useForm8D } from '../contexts/Form8DContext';
 import { COLORS } from '../colors';
 import { Box, Paper, Avatar, Typography, TextField, IconButton, CircularProgress, Snackbar, MenuItem, Select, FormControl, InputLabel, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
@@ -17,12 +17,15 @@ function ChatAssistant() {
   const [isOverallLoading, setIsOverallLoading] = useState(false); // Pour le spinner global de l'input
   const [error, setError] = useState(null);
   const [chatMode, setChatMode] = useState('CHAT'); // 'CHAT' ou 'REQ'
+  const [historyLoaded, setHistoryLoaded] = useState(false); // Pour tracker si l'historique a été chargé
   const messagesEndRef = useRef(null);
   const chatMessagesRef = useRef(null);
   const streamReaderRef = useRef(null); // Pour garder le reader courant
   const bubblesCreatedRef = useRef({ think: false, response: false, sources: false }); // Pour tracker les bulles créées
 
-  const { getAllFormData, currentStepKey, form8DData, updateFormField } = useForm8D();
+  const { getAllFormData, currentStepKey, form8DData, updateFormField, currentNCId } = useForm8D();
+
+  console.log('[CHAT ASSISTANT] Rendu avec currentNCId:', currentNCId);
 
   const scrollToBottom = () => {
     if (chatMessagesRef.current) {
@@ -32,15 +35,196 @@ function ChatAssistant() {
 
   useEffect(scrollToBottom, [messages]);
 
+  // Fonction pour nettoyer les doublons de bulles par conversationId et type
+  const cleanDuplicateBubbles = useCallback((messages) => {
+    const seenBubbles = new Set();
+    const cleanedMessages = [];
+    
+    for (const msg of messages) {
+      if (msg.conversationId && (msg.type || msg.isSourceBubble)) {
+        const bubbleType = msg.type || (msg.isSourceBubble ? 'source' : 'unknown');
+        const bubbleKey = `${msg.conversationId}-${bubbleType}`;
+        if (seenBubbles.has(bubbleKey)) {
+          console.log('[CHAT CLEANUP] Removing duplicate bubble:', bubbleKey, msg.id);
+          continue; // Ignorer ce doublon
+        }
+        seenBubbles.add(bubbleKey);
+      }
+      cleanedMessages.push(msg);
+    }
+    
+    if (cleanedMessages.length !== messages.length) {
+      console.log(`[CHAT CLEANUP] Cleaned ${messages.length - cleanedMessages.length} duplicate bubbles`);
+    }
+    
+    return cleanedMessages;
+  }, []);
+
+  // Charger l'historique de chat depuis la base de données
+  const loadChatHistory = useCallback(async () => {
+    if (!currentNCId) {
+      console.log('[CHAT HISTORY] Pas de currentNCId, arrêt du chargement');
+      return;
+    }
+    
+    try {
+      console.log(`[CHAT HISTORY] Chargement de l'historique pour NC ${currentNCId}`);
+      const response = await fetch(`http://127.0.0.1:8000/api/nonconformites/${currentNCId}/chat-history`);
+      
+      console.log(`[CHAT HISTORY] Réponse reçue:`, response.status, response.ok);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`[CHAT HISTORY] Historique chargé:`, data);
+        
+        if (data.messages && data.messages.length > 0) {
+          // Convertir les messages de la DB au format attendu par le frontend
+          const loadedMessages = data.messages.map(msg => ({
+            id: `db-${msg.id}`, // Utiliser l'ID auto-increment de la DB avec un préfixe
+            messageId: msg.message_id, // Garder le message_id original comme propriété séparée
+            text: msg.content,
+            htmlText: msg.html_content,
+            sender: msg.sender,
+            type: msg.message_type,
+            isLoading: false,
+            timestamp: new Date(msg.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+            conversationId: msg.conversation_id,
+            isSourceBubble: msg.message_type === 'source',
+            isSuggestion: msg.is_suggestion === 'true',
+            stepContext: msg.step_context
+          }));
+          
+          // Ajouter le message de bienvenue si pas déjà présent
+          const welcomeMessage = { 
+            id: uuidv4(), 
+            text: 'Bonjour ! Comment puis-je vous aider avec votre 8D ?', 
+            sender: 'bot', 
+            isLoading: false 
+          };
+          
+          console.log(`[CHAT HISTORY] Mise à jour des messages avec ${loadedMessages.length} messages chargés`);
+          
+          // Filtrer les doublons basés sur l'ID de la base de données
+          const existingDbIds = new Set();
+          const uniqueLoadedMessages = loadedMessages.filter(msg => {
+            const dbId = msg.id.replace('db-', '');
+            if (existingDbIds.has(dbId)) {
+              console.log('[CHAT HISTORY] Message dupliqué ignoré:', msg.id);
+              return false;
+            }
+            existingDbIds.add(dbId);
+            return true;
+          });
+          
+          console.log(`[CHAT HISTORY] Messages uniques après filtrage: ${uniqueLoadedMessages.length}`);
+          
+          // Nettoyer les doublons de bulles par conversationId
+          const cleanedMessages = cleanDuplicateBubbles([welcomeMessage, ...uniqueLoadedMessages]);
+          
+          setMessages(cleanedMessages);
+          setHistoryLoaded(true);
+          console.log(`[CHAT HISTORY] ${cleanedMessages.length} messages chargés et affichés après nettoyage`);
+        } else {
+          console.log('[CHAT HISTORY] Aucun message trouvé');
+          setHistoryLoaded(true);
+        }
+      } else {
+        console.error('[CHAT HISTORY] Erreur lors du chargement:', response.status);
+        const errorText = await response.text();
+        console.error('[CHAT HISTORY] Détails de l\'erreur:', errorText);
+        setHistoryLoaded(true);
+      }
+    } catch (error) {
+      console.error('[CHAT HISTORY] Erreur lors du chargement de l\'historique:', error);
+      setHistoryLoaded(true);
+    }
+  }, [currentNCId]);
+
+  // Charger l'historique quand l'ID de la NC change
+  useEffect(() => {
+    if (currentNCId) {
+      console.log(`[CHAT HISTORY] NC ID changé: ${currentNCId}, chargement de l'historique...`);
+      // Reset d'abord
+      setMessages([
+        { id: uuidv4(), text: 'Bonjour ! Comment puis-je vous aider avec votre 8D ?', sender: 'bot', isLoading: false }
+      ]);
+      setHistoryLoaded(false);
+      setUserInput('');
+      // Puis charger l'historique
+      loadChatHistory();
+    }
+  }, [currentNCId, loadChatHistory]);
+
   // Vide le chat à chaque changement de mode (chatMode)
   useEffect(() => {
-    setMessages([
-      { id: uuidv4(), text: 'Bonjour ! Comment puis-je vous aider avec votre 8D ?', sender: 'bot', isLoading: false }
-    ]);
-    setUserInput('');
-  }, [chatMode]);
+    console.log(`[CHAT MODE] Changement de mode: ${chatMode}`);
+    if (chatMode === 'REQ') {
+      // En mode REQ, afficher seulement le message de bienvenue REQ
+      console.log('[CHAT MODE] Passage en mode REQ, nettoyage interface...');
+      setMessages([
+        { id: uuidv4(), text: 'Bonjour ! Utilisez le bouton "Rechercher des NC similaires" pour trouver des sources pertinentes.', sender: 'bot', isLoading: false }
+      ]);
+      setUserInput('');
+    } else if (chatMode === 'CHAT') {
+      // En mode CHAT, toujours nettoyer d'abord puis recharger l'historique
+      console.log('[CHAT MODE] Passage en mode CHAT, nettoyage et rechargement...');
+      // D'abord nettoyer l'interface
+      setMessages([
+        { id: uuidv4(), text: 'Bonjour ! Comment puis-je vous aider avec votre 8D ?', sender: 'bot', isLoading: false }
+      ]);
+      setUserInput('');
+      
+      // Puis recharger l'historique si on a une NC
+      if (currentNCId) {
+        console.log('[CHAT MODE] Rechargement de l\'historique pour NC:', currentNCId);
+        // Forcer le rechargement de l'historique
+        setHistoryLoaded(false);
+        loadChatHistory();
+      }
+    }
+  }, [chatMode, currentNCId, loadChatHistory]);
 
   const handleInputChange = (e) => setUserInput(e.target.value);
+
+  // Sauvegarder un message dans la base de données
+  const saveChatMessage = async (message, stepContext = null) => {
+    if (!currentNCId) return;
+    
+    // Ne pas sauvegarder les messages en mode REQ (ils sont temporaires)
+    if (chatMode === 'REQ') {
+      console.log('[CHAT HISTORY] Mode REQ: message non sauvegardé', message.id);
+      return;
+    }
+    
+    try {
+      // Déterminer le message_type correct
+      let messageType = message.type;
+      if (message.isSourceBubble || (message.sender === 'system' && message.htmlText)) {
+        messageType = 'source';
+      }
+      
+      const messageToSave = {
+        message_id: message.id,
+        conversation_id: message.conversationId || null,
+        sender: message.sender,
+        message_type: messageType || null,
+        content: message.text || message.partialText || '',
+        html_content: message.htmlText || null,
+        step_context: stepContext || currentStepKey,
+        is_suggestion: message.isSuggestion ? 'true' : 'false'
+      };
+
+      await fetch(`http://127.0.0.1:8000/api/nonconformites/${currentNCId}/chat-history`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(messageToSave)
+      });
+      
+      console.log('[CHAT HISTORY] Message sauvegardé:', messageToSave.message_type, messageToSave.sender, messageToSave.conversation_id);
+    } catch (error) {
+      console.error('[CHAT HISTORY] Erreur lors de la sauvegarde:', error);
+    }
+  };
 
   // Helper pour parser la réponse du bot en sections (think/réponse)
   function parseBotResponse(rawText) {
@@ -98,6 +282,7 @@ function ChatAssistant() {
     if (text === '' && event && chatMode !== 'REQ') return; // Si appelé par un événement et que l'input est vide
 
     const conversationId = uuidv4(); // ID pour grouper les bulles de cette conversation
+    console.log('[CHAT] Nouvelle conversation:', conversationId);
     
     // Reset le tracker des bulles pour cette nouvelle conversation
     bubblesCreatedRef.current = { think: false, response: false, sources: false };
@@ -109,12 +294,22 @@ function ChatAssistant() {
         text: text, 
         sender: 'user', 
         isLoading: false,
-        timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+        timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+        conversationId // Ajouter l'ID de conversation
       };
-      setMessages(prev => [...prev, userMsg]);
+      console.log('[CHAT] Ajout message utilisateur:', userMsg);
+      setMessages(prev => {
+        console.log('[CHAT] Messages avant ajout user:', prev.length);
+        const newMessages = [...prev, userMsg];
+        console.log('[CHAT] Messages après ajout user:', newMessages.length);
+        return newMessages;
+      });
+      // Sauvegarder le message utilisateur
+      saveChatMessage(userMsg, currentStepKey);
     } else {
       // Mode REQ : créer seulement la bulle de sources
-      const sourcesMsg = { id: uuidv4(), htmlText: '', sender: 'system', isSourceBubble: true, conversationId, isLoading: true };
+      const sourcesMsg = { id: uuidv4(), htmlText: '', sender: 'system', type: 'source', isSourceBubble: true, conversationId, isLoading: true };
+      console.log('[CHAT] Ajout sources (REQ mode):', sourcesMsg);
       setMessages(prev => [...prev, sourcesMsg]);
     }
     
@@ -124,7 +319,7 @@ function ChatAssistant() {
 
     const all8DData = getAllFormData();
     const currentSectionData = form8DData[currentStepKey] || {};
-///////Modif du moèdle d'embedding dans model_key , allez voir dans config.py pour les modèles disponibles
+
     try {
       const payload = {
         query: chatMode === 'CHAT' ? text : '', // Envoie la question seulement en mode CHAT
@@ -136,10 +331,7 @@ function ChatAssistant() {
         context_only: chatMode === 'REQ' // Indique au serveur de ne se baser que sur le contexte
       };
 
-      // Ajoute une bulle de bot en attente - SUPPRIMÉ car on a déjà créé les 4 bulles
-      // setMessages(prev => [...prev, { id: botMessageId, text: '', sender: 'bot', isLoading: true }]);
-
-      const response = await fetch('http://localhost:8000/query_with_context', {
+      const response = await fetch('http://127.0.0.1:8000/query_with_context', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -153,28 +345,38 @@ function ChatAssistant() {
       if (chatMode === 'REQ') {
         // Mode REQ : réponse JSON directe
         const data = await response.json();
-        setMessages(prev => prev.map(m => {
-          if (m.conversationId === conversationId && m.isSourceBubble) {
-            if (data.sources && Array.isArray(data.sources) && data.sources.length > 0) {
-              const sourceHtmlContent = "<div style='background: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #007bff;'>" +
-                "<strong style='color: #007bff; font-size: 1.1em;'>📋 Sources Pertinentes :</strong>" +
-                "<div style='margin-top: 8px;'>" +
-                data.sources.map((s, index) =>
-                  `<div style='background: white; margin: 8px 0; padding: 12px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);'>` +
-                  `  <div style='display: flex; align-items: center; margin-bottom: 8px;'>` +
-                  `    <span style='background: #007bff; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold;'>${s.nc_id || 'N/A'}</span>` +
-                  `  </div>` +
-                  `  <div style='color: #666; line-height: 1.4; font-size: 0.9em;'>${s.content || 'Aucun aperçu disponible'}</div>` +
-                  `</div>`
-                ).join('') + 
-                "</div></div>";
-              return { ...m, htmlText: sourceHtmlContent, isLoading: false };
+        setMessages(prev => {
+          const updatedMessages = prev.map(m => {
+            if (m.conversationId === conversationId && m.isSourceBubble) {
+              if (data.sources && Array.isArray(data.sources) && data.sources.length > 0) {
+                const sourceHtmlContent = "<div style='background: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #007bff;'>" +
+                  "<strong style='color: #007bff; font-size: 1.1em;'>📋 Sources Pertinentes :</strong>" +
+                  "<div style='margin-top: 8px;'>" +
+                  data.sources.map((s, index) =>
+                    `<div style='background: white; margin: 8px 0; padding: 12px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);'>` +
+                    `  <div style='display: flex; align-items: center; margin-bottom: 8px;'>` +
+                    `    <span style='background: #007bff; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold;'>${s.nc_id || 'N/A'}</span>` +
+                    `  </div>` +
+                    `  <div style='color: #666; line-height: 1.4; font-size: 0.9em;'>${s.content || 'Aucun aperçu disponible'}</div>` +
+                    `</div>`
+                  ).join('') + 
+                  "</div></div>";              const updatedMsg = { ...m, htmlText: sourceHtmlContent, isLoading: false, type: 'source' };
+              // Sauvegarder le message sources
+              console.log('[CHAT ASSISTANT] Sauvegarde sources REQ mode:', updatedMsg.id, updatedMsg.conversationId);
+              saveChatMessage(updatedMsg, currentStepKey);
+              return updatedMsg;
             } else {
-              return { ...m, htmlText: '<em>Aucune source similaire trouvée.</em>', isLoading: false };
+              const updatedMsg = { ...m, htmlText: '<em>Aucune source similaire trouvée.</em>', isLoading: false, type: 'source' };
+              console.log('[CHAT ASSISTANT] Sauvegarde sources vides REQ mode:', updatedMsg.id, updatedMsg.conversationId);
+              saveChatMessage(updatedMsg, currentStepKey);
+              return updatedMsg;
+              }
             }
-          }
-          return m;
-        }));
+            return m;
+          });
+          // Nettoyer les doublons
+          return cleanDuplicateBubbles(updatedMessages);
+        });
         setIsOverallLoading(false);
         streamReaderRef.current = null;
         return;
@@ -216,16 +418,14 @@ function ChatAssistant() {
             dataChunk = JSON.parse(line); 
           } catch (e) {
             console.error('ERREUR PARSING JSON sur la ligne:', line, 'Erreur:', e);
-            // Si une ligne est invalide, on peut l'ignorer ou afficher une erreur spécifique
-            // setMessages(prev => [...prev, { id: uuidv4(), text: `Erreur de format de données reçues: ${line}`, sender: 'error' }]);
             continue; 
           }
           console.log('[CHAT ASSISTANT] Donnée parsée reçue:', dataChunk);
 
-          // Mettre à jour les bulles de réflexion et réponse
-          if (dataChunk.response !== undefined) {
+          // Mettre à jour les bulles de réflexion et réponse (UNIQUEMENT en mode CHAT)
+          if (dataChunk.response !== undefined && chatMode === 'CHAT') {
             const { think, response } = parseBotResponse(dataChunk.response);
-            console.log('[CHAT ASSISTANT] Parsed content:', { 
+            console.log('[CHAT ASSISTANT] Parsed content (CHAT mode):', { 
               think: think ? `${think.substring(0, 50)}...` : 'null', 
               response: response ? `${response.substring(0, 50)}...` : 'null',
               bubblesCreated: bubblesCreatedRef.current
@@ -233,28 +433,47 @@ function ChatAssistant() {
             
             // Créer la bulle de réflexion si elle n'existe pas et qu'on a du contenu think
             if (think !== null && think !== '' && !bubblesCreatedRef.current.think) {
-              console.log('[CHAT ASSISTANT] Creating think bubble');
-              const thinkMsg = { id: uuidv4(), text: '', sender: 'bot', type: 'think', conversationId, isLoading: true, partialText: '' };
-              setMessages(prev => [...prev, thinkMsg]);
-              bubblesCreatedRef.current.think = true;
+              setMessages(prev => {
+                // Vérifier si une bulle think existe déjà pour cette conversation
+                const existingThinkBubble = prev.find(m => m.conversationId === conversationId && m.type === 'think');
+                if (existingThinkBubble) {
+                  console.log('[CHAT ASSISTANT] Think bubble already exists for conv:', conversationId);
+                  bubblesCreatedRef.current.think = true;
+                  return prev; // Ne pas créer de nouvelle bulle
+                }
+                
+                console.log('[CHAT ASSISTANT] Creating think bubble for conv:', conversationId);
+                const thinkMsg = { id: uuidv4(), text: '', sender: 'bot', type: 'think', conversationId, isLoading: true, partialText: '' };
+                console.log('[CHAT] Adding think bubble, messages before:', prev.length);
+                const newMessages = [...prev, thinkMsg];
+                console.log('[CHAT] Adding think bubble, messages after:', newMessages.length);
+                bubblesCreatedRef.current.think = true;
+                return newMessages;
+              });
             }
             
             // Créer la bulle de réponse si elle n'existe pas et qu'on a du contenu response
             if (response !== null && response !== '' && !bubblesCreatedRef.current.response) {
-              console.log('[CHAT ASSISTANT] Creating response bubble');
-              // Délai pour créer la bulle de réponse après la bulle de réflexion si elle existe
-              const delay = bubblesCreatedRef.current.think ? 300 : 0;
-              setTimeout(() => {
-                if (!bubblesCreatedRef.current.response) {
-                  const responseMsg = { id: uuidv4(), text: '', sender: 'bot', type: 'response', conversationId, isLoading: true, partialText: '' };
-                  setMessages(prev => [...prev, responseMsg]);
+              setMessages(prev => {
+                // Vérifier si une bulle response existe déjà pour cette conversation
+                const existingResponseBubble = prev.find(m => m.conversationId === conversationId && m.type === 'response');
+                if (existingResponseBubble) {
+                  console.log('[CHAT ASSISTANT] Response bubble already exists for conv:', conversationId);
                   bubblesCreatedRef.current.response = true;
-                  console.log('[CHAT ASSISTANT] Response bubble created');
+                  return prev; // Ne pas créer de nouvelle bulle
                 }
-              }, delay);
+                
+                console.log('[CHAT ASSISTANT] Creating response bubble for conv:', conversationId);
+                const responseMsg = { id: uuidv4(), text: '', sender: 'bot', type: 'response', conversationId, isLoading: true, partialText: '' };
+                console.log('[CHAT] Adding response bubble, messages before:', prev.length);
+                const newMessages = [...prev, responseMsg];
+                console.log('[CHAT] Adding response bubble, messages after:', newMessages.length);
+                bubblesCreatedRef.current.response = true;
+                return newMessages;
+              });
             }
             
-            // Mettre à jour les bulles existantes avec le contenu streamé
+            // Mettre à jour les bulles existantes avec le contenu streamé (CHAT mode uniquement)
             setMessages(prev => {
               return prev.map(m => {
                 // Stream la réflexion - on remplace au lieu de concaténer pour éviter les doublons
@@ -280,46 +499,73 @@ function ChatAssistant() {
           if (dataChunk.done) {
             console.log('[CHAT ASSISTANT] Chunk final "done" reçu:', dataChunk);
             
-            // Créer la bulle de sources si elle n'existe pas encore
-            if (!bubblesCreatedRef.current.sources) {
-              const sourcesMsg = { id: uuidv4(), htmlText: '', sender: 'system', isSourceBubble: true, conversationId, isLoading: true };
-              setMessages(prev => [...prev, sourcesMsg]);
-              bubblesCreatedRef.current.sources = true;
-            }
-            
-            // Finaliser toutes les bulles de cette conversation
-            setMessages(prev => prev.map(m => {
-              if (m.conversationId === conversationId) {
-                if (m.type === 'think' && m.partialText) {
-                  return { ...m, text: m.partialText, partialText: undefined, isLoading: false };
-                }
-                if (m.type === 'response' && m.partialText) {
-                  return { ...m, text: m.partialText, partialText: undefined, isLoading: false };
-                }
-                if (m.isSourceBubble) {
-                  // Mettre à jour la bulle des sources
-                  if (dataChunk.sources && Array.isArray(dataChunk.sources) && dataChunk.sources.length > 0) {
-                    const sourceHtmlContent = "<div style='background: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #007bff;'>" +
-                      "<strong style='color: #007bff; font-size: 1.1em;'>📋 Sources Pertinentes :</strong>" +
-                      "<div style='margin-top: 8px;'>" +
-                      dataChunk.sources.map((s, index) => 
-                        `<div style='background: white; margin: 8px 0; padding: 12px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);'>` +
-                        `  <div style='display: flex; align-items: center; margin-bottom: 8px;'>` +
-                        `    <span style='background: #007bff; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold;'>${s.nc_id || 'N/A'}</span>` +
-                        `  </div>` +
-                        `  <div style='color: #666; line-height: 1.4; font-size: 0.9em;'>${s.content || 'Aucun aperçu disponible'}</div>` +
-                        `</div>`
-                      ).join('') + 
-                      "</div></div>";
-                    return { ...m, htmlText: sourceHtmlContent, isLoading: false };
-                  } else {
-                    return { ...m, htmlText: '<em>Aucune source trouvée.</em>', isLoading: false };
+            if (chatMode === 'CHAT') {
+              // Mode CHAT : créer la bulle de sources si elle n'existe pas encore
+              if (!bubblesCreatedRef.current.sources) {
+                setMessages(prev => {
+                  // Vérifier si une bulle sources existe déjà pour cette conversation
+                  const existingSourcesBubble = prev.find(m => m.conversationId === conversationId && m.isSourceBubble);
+                  if (existingSourcesBubble) {
+                    console.log('[CHAT ASSISTANT] Sources bubble already exists for conv:', conversationId);
+                    bubblesCreatedRef.current.sources = true;
+                    return prev; // Ne pas créer de nouvelle bulle
                   }
-                }
-                return { ...m, isLoading: false };
+                  
+                  console.log('[CHAT ASSISTANT] Creating sources bubble for conv:', conversationId);
+                  const sourcesMsg = { id: uuidv4(), htmlText: '', sender: 'system', type: 'source', isSourceBubble: true, conversationId, isLoading: true };
+                  bubblesCreatedRef.current.sources = true;
+                  return [...prev, sourcesMsg];
+                });
               }
-              return m;
-            }));
+              
+              // Finaliser toutes les bulles de cette conversation (CHAT mode)
+              setMessages(prev => prev.map(m => {
+                if (m.conversationId === conversationId) {
+                  if (m.type === 'think' && m.partialText) {
+                    const finalThinkMsg = { ...m, text: m.partialText, partialText: undefined, isLoading: false };
+                    // Sauvegarder la bulle de réflexion finale
+                    saveChatMessage(finalThinkMsg, currentStepKey);
+                    return finalThinkMsg;
+                  }
+                  if (m.type === 'response' && m.partialText) {
+                    const finalResponseMsg = { ...m, text: m.partialText, partialText: undefined, isLoading: false };
+                    // Sauvegarder la bulle de réponse finale
+                    saveChatMessage(finalResponseMsg, currentStepKey);
+                    return finalResponseMsg;
+                  }
+                  if (m.isSourceBubble) {
+                    // Mettre à jour la bulle des sources
+                    if (dataChunk.sources && Array.isArray(dataChunk.sources) && dataChunk.sources.length > 0) {
+                      const sourceHtmlContent = "<div style='background: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #007bff;'>" +
+                        "<strong style='color: #007bff; font-size: 1.1em;'>📋 Sources Pertinentes :</strong>" +
+                        "<div style='margin-top: 8px;'>" +
+                        dataChunk.sources.map((s, index) => 
+                          `<div style='background: white; margin: 8px 0; padding: 12px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);'>` +
+                          `  <div style='display: flex; align-items: center; margin-bottom: 8px;'>` +
+                          `    <span style='background: #007bff; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold;'>${s.nc_id || 'N/A'}</span>` +
+                          `  </div>` +
+                          `  <div style='color: #666; line-height: 1.4; font-size: 0.9em;'>${s.content || 'Aucun aperçu disponible'}</div>` +
+                          `</div>`
+                        ).join('') + 
+                        "</div></div>";
+                      const finalSourceMsg = { ...m, htmlText: sourceHtmlContent, isLoading: false, type: 'source' };
+                      // Sauvegarder la bulle des sources
+                      console.log('[CHAT ASSISTANT] Sauvegarde de la bulle sources CHAT:', finalSourceMsg.id, finalSourceMsg.conversationId);
+                      saveChatMessage(finalSourceMsg, currentStepKey);
+                      return finalSourceMsg;
+                    } else {
+                      const finalSourceMsg = { ...m, htmlText: '<em>Aucune source trouvée.</em>', isLoading: false, type: 'source' };
+                      console.log('[CHAT ASSISTANT] Sauvegarde de la bulle sources vide CHAT:', finalSourceMsg.id, finalSourceMsg.conversationId);
+                      saveChatMessage(finalSourceMsg, currentStepKey);
+                      return finalSourceMsg;
+                    }
+                  }
+                  return { ...m, isLoading: false };
+                }
+                return m;
+              }));
+            }
+            // Pour le mode REQ, les sources sont déjà finalisées plus haut
 
             // Ajouter la bulle de suggestion de champ si elle existe
             if (dataChunk.suggested_field_update) {
@@ -333,6 +579,8 @@ function ChatAssistant() {
                 suggestionDetails: dataChunk.suggested_field_update
               };
               setMessages(prev => [...prev, suggestionMessageObject]);
+              // Sauvegarder la suggestion
+              saveChatMessage(suggestionMessageObject, currentStepKey);
             }
           } 
         } 
@@ -340,34 +588,50 @@ function ChatAssistant() {
     } catch (error) {
       console.error("Erreur dans handleSendMessage:", error);
       // Mettre à jour les bulles avec le message d'erreur
-      setMessages(prev => prev.map(m => {
-        if (m.conversationId === conversationId) {
-          const errorMsgText = `Erreur: ${error.message || 'Une erreur inconnue est survenue.'}`;
-          if (m.type === 'think') {
-            return { ...m, text: errorMsgText, isLoading: false };
+      setMessages(prev => {
+        const updatedMessages = prev.map(m => {
+          if (m.conversationId === conversationId) {
+            const errorMsgText = `Erreur: ${error.message || 'Une erreur inconnue est survenue.'}`;
+            if (m.type === 'think') {
+              const errorThinkMsg = { ...m, text: errorMsgText, isLoading: false };
+              saveChatMessage(errorThinkMsg, currentStepKey);
+              return errorThinkMsg;
+            }
+            if (m.type === 'response') {
+              const errorResponseMsg = { ...m, text: errorMsgText, isLoading: false, sender: 'error' };
+              saveChatMessage(errorResponseMsg, currentStepKey);
+              return errorResponseMsg;
+            }
+            if (m.isSourceBubble) {
+              const errorSourceMsg = { ...m, htmlText: '<em>Erreur lors de la récupération des sources.</em>', isLoading: false };
+              saveChatMessage(errorSourceMsg, currentStepKey);
+              return errorSourceMsg;
+            }
           }
-          if (m.type === 'response') {
-            return { ...m, text: errorMsgText, isLoading: false, sender: 'error' };
-          }
-          if (m.isSourceBubble) {
-            return { ...m, htmlText: '<em>Erreur lors de la récupération des sources.</em>', isLoading: false };
-          }
-        }
-        return m;
-      }));
+          return m;
+        });
+        // Nettoyer les doublons après la gestion d'erreur
+        return cleanDuplicateBubbles(updatedMessages);
+      });
       setError(error.message || 'Une erreur inconnue est survenue.');
     } finally {
       setIsOverallLoading(false);
       streamReaderRef.current = null; // Nettoie le reader
       // Assurer qu'aucun message individuel ne reste en mode chargement si le flux s'est terminé (même par erreur)
-      setMessages(prev => prev.map(m => m.isLoading ? { ...m, isLoading: false } : m));
+      setMessages(prev => {
+        const updatedMessages = prev.map(m => m.isLoading ? { ...m, isLoading: false } : m);
+        // Nettoyer les doublons après la finalisation
+        return cleanDuplicateBubbles(updatedMessages);
+      });
     }
   };
 
   const applyFieldSuggestion = (section, field, value) => {
      updateFormField(section, field, value);
      const confirmationText = `Champ '${field}' de la section '${section}' mis à jour.`;
-     setMessages(prev => [...prev, {id: uuidv4(), text: confirmationText, sender: 'system', isLoading: false }]);
+     const confirmationMsg = {id: uuidv4(), text: confirmationText, sender: 'system', isLoading: false };
+     setMessages(prev => [...prev, confirmationMsg]);
+     saveChatMessage(confirmationMsg, currentStepKey);
   };
 
   // Bouton STOP : annule le stream
@@ -407,19 +671,55 @@ function ChatAssistant() {
             <MenuItem value="REQ" sx={{ color: COLORS.accentGreen }}>Requête (sources)</MenuItem>
           </Select>
         </FormControl>
+
         <Box sx={{ flex: 1, overflowY: 'auto', mb: 2, p:1, background: '#f7fafd', borderRadius: 2 }} ref={chatMessagesRef}>
-          {messages.map((msg, idx) => {
-            // Accordéon pour chaque bulle
-            if (msg.type === 'think' || msg.type === 'response') {
-              // On stream le contenu dans la même bulle
+          {messages
+            .filter(msg => {
+              // En mode REQ, afficher seulement les messages du bot de bienvenue et les sources
+              if (chatMode === 'REQ') {
+                return (msg.sender === 'bot' && !msg.type && !msg.isSourceBubble) || 
+                       (msg.sender === 'system' && msg.isSourceBubble);
+              }
+              // En mode CHAT, afficher tous les messages
+              return true;
+            })
+            .map((msg, idx) => {
+            // Ne pas afficher les messages invalides
+            if (!msg.id) return null;
+            
+            // Grouper les messages par conversation pour un affichage ordonné
+            // Chaque message s'affiche dans l'ordre chronologique
+            
+            // Message utilisateur
+            if (msg.sender === 'user') {
+              return (
+                <Accordion key={msg.id} defaultExpanded={true} sx={{ mb: 1.5, boxShadow: '0 1px 4px #e3eafc', borderRadius: 2 }}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: COLORS.primaryDark, color: COLORS.white }}>
+                    <Avatar sx={{ bgcolor: COLORS.primaryDark, color: COLORS.white, ml: 1, mr: 1, width: 32, height: 32, fontSize: '0.8rem', boxShadow: '0 1px 4px #e3eafc' }}>U</Avatar>
+                    <Typography variant="body2" sx={{ color: 'inherit', fontWeight: 500, ml: 1, flex: 1 }}>Utilisateur</Typography>
+                    {msg.timestamp && (
+                      <Typography variant="caption" sx={{ color: 'inherit', opacity: 0.7, fontSize: '0.75rem' }}>
+                        {msg.timestamp}
+                      </Typography>
+                    )}
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: 'inherit' }}>{msg.text}</Typography>
+                  </AccordionDetails>
+                </Accordion>
+              );
+            }
+            
+            // Réflexion de l'assistant
+            if (msg.type === 'think') {
               const displayText = msg.partialText || msg.text || '';
               const isEmpty = !displayText.trim();
               
               return (
-                <Accordion key={msg.id} defaultExpanded={true} sx={{ mb: 1.5, boxShadow: '0 1px 4px #e3eafc', borderRadius: 2 }}>
-                  <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: msg.type === 'think' ? '#eaf1fb' : '#e6f7ef', color: COLORS.primaryDark }}>
-                    <Avatar sx={{ bgcolor: msg.type === 'think' ? COLORS.accentBlue : COLORS.accentGreen, color: COLORS.white, mr: 1, width: 32, height: 32, fontSize: '0.8rem', boxShadow: '0 1px 4px #e3eafc' }}>{msg.type === 'think' ? '🤔' : 'A'}</Avatar>
-                    <Typography variant="body2" sx={{ color: COLORS.primaryDark, fontWeight: 500, ml: 1 }}>{msg.type === 'think' ? "Réflexion de l'assistant" : "Réponse de l'assistant"}</Typography>
+                <Accordion key={msg.id} defaultExpanded={false} sx={{ mb: 1.5, ml: 2, boxShadow: '0 1px 4px #e3eafc', borderRadius: 2 }}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: '#eaf1fb', color: COLORS.primaryDark }}>
+                    <Avatar sx={{ bgcolor: COLORS.accentBlue, color: COLORS.white, mr: 1, width: 32, height: 32, fontSize: '0.8rem', boxShadow: '0 1px 4px #e3eafc' }}>🤔</Avatar>
+                    <Typography variant="body2" sx={{ color: COLORS.primaryDark, fontWeight: 500, ml: 1 }}>Réflexion de l'assistant</Typography>
                     {msg.isLoading && (
                       <CircularProgress size={16} sx={{ ml: 2, color: COLORS.primaryDark }} />
                     )}
@@ -427,7 +727,7 @@ function ChatAssistant() {
                   <AccordionDetails>
                     {isEmpty && !msg.isLoading ? (
                       <Typography variant="body2" sx={{ fontStyle: 'italic', color: '#999' }}>
-                        {msg.type === 'think' ? 'Aucune réflexion disponible...' : 'En attente de réponse...'}
+                        Réflexion en cours...
                       </Typography>
                     ) : (
                       <ReactMarkdown>{displayText}</ReactMarkdown>
@@ -436,14 +736,43 @@ function ChatAssistant() {
                 </Accordion>
               );
             }
-            if (msg.isSourceBubble) {
+            
+            // Réponse de l'assistant
+            if (msg.type === 'response') {
+              const displayText = msg.partialText || msg.text || '';
+              const isEmpty = !displayText.trim();
+              
+              return (
+                <Accordion key={msg.id} defaultExpanded={true} sx={{ mb: 1.5, ml: 2, boxShadow: '0 1px 4px #e3eafc', borderRadius: 2 }}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: '#e6f7ef', color: COLORS.primaryDark }}>
+                    <Avatar sx={{ bgcolor: COLORS.accentGreen, color: COLORS.white, mr: 1, width: 32, height: 32, fontSize: '0.8rem', boxShadow: '0 1px 4px #e3eafc' }}>A</Avatar>
+                    <Typography variant="body2" sx={{ color: COLORS.primaryDark, fontWeight: 500, ml: 1 }}>Réponse de l'assistant</Typography>
+                    {msg.isLoading && (
+                      <CircularProgress size={16} sx={{ ml: 2, color: COLORS.primaryDark }} />
+                    )}
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    {isEmpty && !msg.isLoading ? (
+                      <Typography variant="body2" sx={{ fontStyle: 'italic', color: '#999' }}>
+                        En attente de réponse...
+                      </Typography>
+                    ) : (
+                      <ReactMarkdown>{displayText}</ReactMarkdown>
+                    )}
+                  </AccordionDetails>
+                </Accordion>
+              );
+            }
+            
+            // Sources (système)
+            if (msg.isSourceBubble || (msg.sender === 'system' && msg.type === 'source')) {
               const isEmpty = !msg.htmlText || msg.htmlText.trim() === '';
               
               return (
-                <Accordion key={msg.id} defaultExpanded={true} sx={{ mb: 1.5, boxShadow: '0 1px 4px #e3eafc', borderRadius: 2 }}>
-                  <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: '#eaf1fb', color: COLORS.primaryDark }}>
-                    <Avatar sx={{ bgcolor: COLORS.accentBlue, color: COLORS.white, mr: 1, width: 32, height: 32, fontSize: '0.8rem', boxShadow: '0 1px 4px #e3eafc' }}>S</Avatar>
-                    <Typography variant="body2" sx={{ color: COLORS.primaryDark, fontWeight: 500, ml: 1 }}>Sources</Typography>
+                <Accordion key={msg.id} defaultExpanded={false} sx={{ mb: 1.5, ml: 2, boxShadow: '0 1px 4px #e3eafc', borderRadius: 2 }}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: '#e6f7ef', color: COLORS.primaryDark }}>
+                    <Avatar sx={{ bgcolor: COLORS.accentGreen, color: COLORS.white, mr: 1, width: 32, height: 32, fontSize: '0.8rem', boxShadow: '0 1px 4px #e3eafc' }}>S</Avatar>
+                    <Typography variant="body2" sx={{ color: COLORS.primaryDark, fontWeight: 500, ml: 1 }}>Système (Sources)</Typography>
                     {msg.isLoading && (
                       <CircularProgress size={16} sx={{ ml: 2, color: COLORS.primaryDark }} />
                     )}
@@ -460,70 +789,94 @@ function ChatAssistant() {
                 </Accordion>
               );
             }
-            // Accordéon pour utilisateur, erreur, suggestion, etc.
-            return (
-              <Accordion key={msg.id} defaultExpanded={true} sx={{ mb: 1.5, boxShadow: '0 1px 4px #e3eafc', borderRadius: 2 }}>
-                <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: msg.sender === 'user' ? COLORS.primaryDark : (msg.sender === 'error' ? '#ffeaea' : (msg.sender === 'system' ? '#e6f7ef' : '#eaf1fb')), color: msg.sender === 'user' ? COLORS.white : (msg.sender === 'error' ? COLORS.error : (msg.sender === 'system' ? '#218c5a' : COLORS.primaryDark)) }}>
-                  <Avatar sx={{ bgcolor: msg.sender === 'user' ? COLORS.primaryDark : (msg.sender === 'error' ? COLORS.error : (msg.sender === 'system' ? COLORS.accentGreen : COLORS.accentBlue)), color: COLORS.white, ml: msg.sender === 'user' ? 1 : 0, mr: msg.sender === 'user' ? 0 : 1, width: 32, height: 32, fontSize: '0.8rem', boxShadow: '0 1px 4px #e3eafc' }}>
-                    {msg.sender === 'user' ? 'U' : (msg.sender === 'error' ? 'E' : (msg.sender === 'system' ? 'S' : 'A'))}
-                  </Avatar>
-                  <Typography variant="body2" sx={{ color: 'inherit', fontWeight: 500, ml: 1, flex: 1 }}>
-                    {msg.sender === 'user' ? 'Utilisateur' : (msg.sender === 'error' ? 'Erreur' : (msg.sender === 'system' ? 'Système' : 'Assistant'))}
-                  </Typography>
-                  {msg.timestamp && (
-                    <Typography variant="caption" sx={{ color: 'inherit', opacity: 0.7, fontSize: '0.75rem' }}>
-                      {msg.timestamp}
-                    </Typography>
-                  )}
-                  {msg.isLoading && msg.sender === 'bot' && (
-                    <CircularProgress size={16} sx={{ ml: 2, color: COLORS.primaryDark }} />
-                  )}
-                </AccordionSummary>
-                <AccordionDetails>
-                  {msg.htmlText ? <div dangerouslySetInnerHTML={{ __html: msg.htmlText }} /> : <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: 'inherit' }}>{msg.text}</Typography>}
-                  {msg.isSuggestion && msg.suggestionDetails && (
-                    <div style={{ 
-                      marginTop: '12px', 
-                      padding: '12px', 
-                      background: 'linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%)', 
-                      borderRadius: '8px', 
-                      border: '1px solid #28a745' 
-                    }}>
+            
+            // Messages du bot générique (bienvenue, etc.)
+            if (msg.sender === 'bot' && !msg.type && !msg.isSourceBubble) {
+              return (
+                <Accordion key={msg.id} defaultExpanded={true} sx={{ mb: 1.5, boxShadow: '0 1px 4px #e3eafc', borderRadius: 2 }}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: '#eaf1fb', color: COLORS.primaryDark }}>
+                    <Avatar sx={{ bgcolor: COLORS.accentBlue, color: COLORS.white, mr: 1, width: 32, height: 32, fontSize: '0.8rem', boxShadow: '0 1px 4px #e3eafc' }}>A</Avatar>
+                    <Typography variant="body2" sx={{ color: COLORS.primaryDark, fontWeight: 500, ml: 1 }}>Assistant</Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: 'inherit' }}>{msg.text}</Typography>
+                  </AccordionDetails>
+                </Accordion>
+              );
+            }
+            
+            // Messages d'erreur
+            if (msg.sender === 'error') {
+              return (
+                <Accordion key={msg.id} defaultExpanded={true} sx={{ mb: 1.5, boxShadow: '0 1px 4px #e3eafc', borderRadius: 2 }}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: '#ffeaea', color: COLORS.error }}>
+                    <Avatar sx={{ bgcolor: COLORS.error, color: COLORS.white, mr: 1, width: 32, height: 32, fontSize: '0.8rem', boxShadow: '0 1px 4px #e3eafc' }}>E</Avatar>
+                    <Typography variant="body2" sx={{ color: 'inherit', fontWeight: 500, ml: 1 }}>Erreur</Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: 'inherit' }}>{msg.text}</Typography>
+                  </AccordionDetails>
+                </Accordion>
+              );
+            }
+            
+            // Messages système avec suggestions
+            if (msg.sender === 'system' && msg.isSuggestion) {
+              return (
+                <Accordion key={msg.id} defaultExpanded={true} sx={{ mb: 1.5, ml: 2, boxShadow: '0 1px 4px #e3eafc', borderRadius: 2 }}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: '#e6f7ef', color: '#218c5a' }}>
+                    <Avatar sx={{ bgcolor: COLORS.accentGreen, color: COLORS.white, mr: 1, width: 32, height: 32, fontSize: '0.8rem', boxShadow: '0 1px 4px #e3eafc' }}>💡</Avatar>
+                    <Typography variant="body2" sx={{ color: 'inherit', fontWeight: 500, ml: 1 }}>Suggestion</Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: 'inherit' }}>{msg.text}</Typography>
+                    {msg.suggestionDetails && (
                       <div style={{ 
-                        color: '#155724', 
-                        fontWeight: '600', 
-                        marginBottom: '8px',
-                        fontSize: '0.9em'
+                        marginTop: '12px', 
+                        padding: '12px', 
+                        background: 'linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%)', 
+                        borderRadius: '8px', 
+                        border: '1px solid #28a745' 
                       }}>
-                        💡 Suggestion de completion automatique
+                        <div style={{ 
+                          color: '#155724', 
+                          fontWeight: '600', 
+                          marginBottom: '8px',
+                          fontSize: '0.9em'
+                        }}>
+                          💡 Suggestion de completion automatique
+                        </div>
+                        <button 
+                          onClick={() => applyFieldSuggestion(msg.suggestionDetails.section, msg.suggestionDetails.field, msg.suggestionDetails.value)} 
+                          style={{ 
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '8px 16px', 
+                            fontSize: '0.875rem', 
+                            cursor: 'pointer', 
+                            background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)', 
+                            color: 'white', 
+                            border: 'none', 
+                            borderRadius: '6px', 
+                            fontWeight: '500',
+                            boxShadow: '0 2px 4px rgba(40, 167, 69, 0.3)',
+                            transition: 'all 0.2s ease'
+                          }}
+                          onMouseOver={(e) => e.target.style.transform = 'translateY(-1px)'}
+                          onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                        >
+                          ✓ Appliquer la Suggestion
+                        </button>
                       </div>
-                      <button 
-                        onClick={() => applyFieldSuggestion(msg.suggestionDetails.section, msg.suggestionDetails.field, msg.suggestionDetails.value)} 
-                        style={{ 
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '8px 16px', 
-                          fontSize: '0.875rem', 
-                          cursor: 'pointer', 
-                          background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)', 
-                          color: 'white', 
-                          border: 'none', 
-                          borderRadius: '6px', 
-                          fontWeight: '500',
-                          boxShadow: '0 2px 4px rgba(40, 167, 69, 0.3)',
-                          transition: 'all 0.2s ease'
-                        }}
-                        onMouseOver={(e) => e.target.style.transform = 'translateY(-1px)'}
-                        onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-                      >
-                        ✓ Appliquer la Suggestion
-                      </button>
-                    </div>
-                  )}
-                </AccordionDetails>
-              </Accordion>
-            );
+                    )}
+                  </AccordionDetails>
+                </Accordion>
+              );
+            }
+            
+            // Par défaut, ne pas afficher (pour éviter les messages non reconnus)
+            return null;
           })}
           <div ref={messagesEndRef} />
         </Box>

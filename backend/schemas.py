@@ -87,3 +87,31 @@ class MembreEquipe(MembreEquipeBase):
 
     class Config:
         from_attributes = True
+
+class ChatMessageBase(BaseModel):
+    message_id: str
+    conversation_id: Optional[str] = None
+    sender: str  # 'user', 'bot', 'system', 'error'
+    message_type: Optional[str] = None  # 'think', 'response', 'source', etc.
+    content: str
+    html_content: Optional[str] = None
+    step_context: Optional[str] = None  # Étape 8D actuelle
+    is_suggestion: Optional[str] = 'false'
+
+class ChatMessageCreate(ChatMessageBase):
+    nonconformite_id: int
+
+class ChatMessageCreateRequest(ChatMessageBase):
+    pass  # Sans nonconformite_id car il vient de l'URL
+
+class ChatMessage(ChatMessageBase):
+    id: int
+    nonconformite_id: int
+    timestamp: datetime
+
+    class Config:
+        from_attributes = True
+
+class ChatHistoryResponse(BaseModel):
+    nonconformite_id: int
+    messages: List[ChatMessage]
