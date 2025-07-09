@@ -15,4 +15,6 @@ python-dotenv
 httpx
 # Pour le support CSV éventuel
 pandas
+# Pour les calculs de similarité
+scikit-learn
 # Pour le frontend, requirements séparés (voir package.json)

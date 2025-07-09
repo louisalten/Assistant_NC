@@ -6,6 +6,7 @@ import { Box, Paper, Avatar, Typography, TextField, IconButton, CircularProgress
 import SendIcon from '@mui/icons-material/Send';
 import StopIcon from '@mui/icons-material/Stop';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import { v4 as uuidv4 } from 'uuid'; // Pour des IDs uniques
 import ReactMarkdown from 'react-markdown';
 
@@ -18,6 +19,7 @@ function ChatAssistant() {
   const [error, setError] = useState(null);
   const [chatMode, setChatMode] = useState('CHAT'); // 'CHAT' ou 'REQ'
   const [historyLoaded, setHistoryLoaded] = useState(false); // Pour tracker si l'historique a été chargé
+  const [autoScroll, setAutoScroll] = useState(true); // Pour contrôler le scroll automatique
   const messagesEndRef = useRef(null);
   const chatMessagesRef = useRef(null);
   const streamReaderRef = useRef(null); // Pour garder le reader courant
@@ -28,8 +30,25 @@ function ChatAssistant() {
   console.log('[CHAT ASSISTANT] Rendu avec currentNCId:', currentNCId);
 
   const scrollToBottom = () => {
-    if (chatMessagesRef.current) {
+    if (autoScroll && chatMessagesRef.current) {
       chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
+    }
+  };
+
+  // Détecter quand l'utilisateur scroll manuellement
+  const handleScroll = () => {
+    if (!chatMessagesRef.current) return;
+    
+    const { scrollTop, scrollHeight, clientHeight } = chatMessagesRef.current;
+    const isAtBottom = scrollHeight - scrollTop <= clientHeight + 10; // 10px de tolérance
+    
+    // Réactiver l'auto-scroll si l'utilisateur est revenu en bas
+    if (isAtBottom && !autoScroll) {
+      setAutoScroll(true);
+    }
+    // Désactiver l'auto-scroll si l'utilisateur scroll vers le haut
+    else if (!isAtBottom && autoScroll) {
+      setAutoScroll(false);
     }
   };
 
@@ -165,6 +184,7 @@ function ChatAssistant() {
         { id: uuidv4(), text: 'Bonjour ! Utilisez le bouton "Rechercher des NC similaires" pour trouver des sources pertinentes.', sender: 'bot', isLoading: false }
       ]);
       setUserInput('');
+      setAutoScroll(true); // Réactiver l'auto-scroll en mode REQ
     } else if (chatMode === 'CHAT') {
       // En mode CHAT, toujours nettoyer d'abord puis recharger l'historique
       console.log('[CHAT MODE] Passage en mode CHAT, nettoyage et rechargement...');
@@ -173,6 +193,7 @@ function ChatAssistant() {
         { id: uuidv4(), text: 'Bonjour ! Comment puis-je vous aider avec votre 8D ?', sender: 'bot', isLoading: false }
       ]);
       setUserInput('');
+      setAutoScroll(true); // Réactiver l'auto-scroll en mode CHAT
       
       // Puis recharger l'historique si on a une NC
       if (currentNCId) {
@@ -280,6 +301,9 @@ function ChatAssistant() {
     let text = userInput.trim();
     if (chatMode === 'REQ') text = '';
     if (text === '' && event && chatMode !== 'REQ') return; // Si appelé par un événement et que l'input est vide
+
+    // Réactiver l'auto-scroll lors de l'envoi d'un nouveau message
+    setAutoScroll(true);
 
     const conversationId = uuidv4(); // ID pour grouper les bulles de cette conversation
     console.log('[CHAT] Nouvelle conversation:', conversationId);
@@ -672,7 +696,11 @@ function ChatAssistant() {
           </Select>
         </FormControl>
 
-        <Box sx={{ flex: 1, overflowY: 'auto', mb: 2, p:1, background: '#f7fafd', borderRadius: 2 }} ref={chatMessagesRef}>
+        <Box 
+          sx={{ flex: 1, overflowY: 'auto', mb: 2, p:1, background: '#f7fafd', borderRadius: 2 }} 
+          ref={chatMessagesRef}
+          onScroll={handleScroll}
+        >
           {messages
             .filter(msg => {
               // En mode REQ, afficher seulement les messages du bot de bienvenue et les sources
@@ -880,6 +908,40 @@ function ChatAssistant() {
           })}
           <div ref={messagesEndRef} />
         </Box>
+        
+        {/* Bouton "Aller au bas" qui apparaît quand l'utilisateur a scrollé vers le haut */}
+        {!autoScroll && (
+          <Box sx={{ 
+            position: 'relative', 
+            display: 'flex', 
+            justifyContent: 'center', 
+            mb: 1 
+          }}>
+            <IconButton
+              onClick={() => {
+                setAutoScroll(true);
+                scrollToBottom();
+              }}
+              sx={{
+                position: 'absolute',
+                bottom: 0,
+                bgcolor: COLORS.accentBlue,
+                color: COLORS.white,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                '&:hover': { 
+                  bgcolor: COLORS.primaryDark,
+                  transform: 'translateY(-2px)'
+                },
+                transition: 'all 0.2s ease',
+                zIndex: 10
+              }}
+              size="small"
+            >
+              <ArrowDownwardIcon />
+            </IconButton>
+          </Box>
+        )}
+        
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pt:1, borderTop: '1px solid', borderColor: '#e3eafc', background: COLORS.white, borderRadius: 2, boxShadow: '0 1px 4px #e3eafc' }}>
           {chatMode === 'CHAT' ? (
             <>
