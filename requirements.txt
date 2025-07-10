@@ -17,4 +17,6 @@ httpx
 pandas
 # Pour les calculs de similarité
 scikit-learn
+# Pour la génération de documents PDF
+reportlab
 # Pour le frontend, requirements séparés (voir package.json)

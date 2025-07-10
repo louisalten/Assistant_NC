@@ -2,11 +2,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useForm8D } from '../contexts/Form8DContext';
 import { COLORS } from '../colors';
-import { Box, Paper, Avatar, Typography, TextField, IconButton, CircularProgress, Snackbar, MenuItem, Select, FormControl, InputLabel, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
+import { Box, Paper, Avatar, Typography, TextField, IconButton, CircularProgress, Snackbar, MenuItem, Select, FormControl, InputLabel, Accordion, AccordionSummary, AccordionDetails, Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import StopIcon from '@mui/icons-material/Stop';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import CloseIcon from '@mui/icons-material/Close';
 import { v4 as uuidv4 } from 'uuid'; // Pour des IDs uniques
 import ReactMarkdown from 'react-markdown';
 
@@ -20,6 +21,9 @@ function ChatAssistant() {
   const [chatMode, setChatMode] = useState('CHAT'); // 'CHAT' ou 'REQ'
   const [historyLoaded, setHistoryLoaded] = useState(false); // Pour tracker si l'historique a été chargé
   const [autoScroll, setAutoScroll] = useState(true); // Pour contrôler le scroll automatique
+  const [ncPreviewOpen, setNcPreviewOpen] = useState(false); // Modal d'aperçu NC
+  const [previewNCData, setPreviewNCData] = useState(null); // Données de la NC en aperçu
+  const [previewLoading, setPreviewLoading] = useState(false); // Chargement de l'aperçu
   const messagesEndRef = useRef(null);
   const chatMessagesRef = useRef(null);
   const streamReaderRef = useRef(null); // Pour garder le reader courant
@@ -378,10 +382,14 @@ function ChatAssistant() {
                   "<div style='margin-top: 8px;'>" +
                   data.sources.map((s, index) =>
                     `<div style='background: white; margin: 8px 0; padding: 12px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);'>` +
-                    `  <div style='display: flex; align-items: center; margin-bottom: 8px;'>` +
+                    `  <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;'>` +
                     `    <span style='background: #007bff; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold;'>${s.nc_id || 'N/A'}</span>` +
+                    `    <a href='http://127.0.0.1:8000/api/nonconformites/${s.nc_id}/document.pdf?conversation_id=${m.conversationId}' target='_blank' style='background: #28a745; color: white; padding: 4px 8px; border-radius: 4px; text-decoration: none; font-size: 0.75em; font-weight: bold; transition: background 0.2s; display: inline-flex; align-items: center; gap: 4px;' onmouseover='this.style.background="#218838"' onmouseout='this.style.background="#28a745"'>📄 PDF</a>` +
                     `  </div>` +
-                    `  <div style='color: #666; line-height: 1.4; font-size: 0.9em;'>${s.content || 'Aucun aperçu disponible'}</div>` +
+                    `  <div style='color: #666; line-height: 1.4; font-size: 0.9em; margin-bottom: 8px;'>${s.content || 'Aucun aperçu disponible'}</div>` +
+                    `  <div style='border-top: 1px solid #eee; padding-top: 8px; margin-top: 8px;'>` +
+                    `    <button onclick='showNCPreview("${s.nc_id}", "${m.conversationId}")' style='background: #17a2b8; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.75em; cursor: pointer; transition: background 0.2s;' onmouseover='this.style.background="#138496"' onmouseout='this.style.background="#17a2b8"'>👁️ Aperçu rapide</button>` +
+                    `  </div>` +
                     `</div>`
                   ).join('') + 
                   "</div></div>";              const updatedMsg = { ...m, htmlText: sourceHtmlContent, isLoading: false, type: 'source' };
@@ -559,16 +567,19 @@ function ChatAssistant() {
                   }
                   if (m.isSourceBubble) {
                     // Mettre à jour la bulle des sources
-                    if (dataChunk.sources && Array.isArray(dataChunk.sources) && dataChunk.sources.length > 0) {
-                      const sourceHtmlContent = "<div style='background: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #007bff;'>" +
+                    if (dataChunk.sources && Array.isArray(dataChunk.sources) && dataChunk.sources.length > 0) {                        const sourceHtmlContent = "<div style='background: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #007bff;'>" +
                         "<strong style='color: #007bff; font-size: 1.1em;'>📋 Sources Pertinentes :</strong>" +
                         "<div style='margin-top: 8px;'>" +
                         dataChunk.sources.map((s, index) => 
                           `<div style='background: white; margin: 8px 0; padding: 12px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);'>` +
-                          `  <div style='display: flex; align-items: center; margin-bottom: 8px;'>` +
+                          `  <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;'>` +
                           `    <span style='background: #007bff; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold;'>${s.nc_id || 'N/A'}</span>` +
+                          `    <a href='http://127.0.0.1:8000/api/nonconformites/${s.nc_id}/document.pdf?conversation_id=${m.conversationId}' target='_blank' style='background: #28a745; color: white; padding: 4px 8px; border-radius: 4px; text-decoration: none; font-size: 0.75em; font-weight: bold; transition: background 0.2s; display: inline-flex; align-items: center; gap: 4px;' onmouseover='this.style.background="#218838"' onmouseout='this.style.background="#28a745"'>📄 PDF</a>` +
                           `  </div>` +
-                          `  <div style='color: #666; line-height: 1.4; font-size: 0.9em;'>${s.content || 'Aucun aperçu disponible'}</div>` +
+                          `  <div style='color: #666; line-height: 1.4; font-size: 0.9em; margin-bottom: 8px;'>${s.content || 'Aucun aperçu disponible'}</div>` +
+                          `  <div style='border-top: 1px solid #eee; padding-top: 8px; margin-top: 8px;'>` +
+                          `    <button onclick='showNCPreview("${s.nc_id}", "${m.conversationId}")' style='background: #17a2b8; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.75em; cursor: pointer; transition: background 0.2s;' onmouseover='this.style.background="#138496"' onmouseout='this.style.background="#17a2b8"'>👁️ Aperçu rapide</button>` +
+                          `  </div>` +
                           `</div>`
                         ).join('') + 
                         "</div></div>";
@@ -668,6 +679,51 @@ function ChatAssistant() {
     setMessages(prev => prev.map(m => m.isLoading ? { ...m, isLoading: false } : m));
   };
 
+  // Fonction pour afficher l'aperçu rapide d'une NC
+  const showNCPreview = async (ncId, conversationId) => {
+    setPreviewLoading(true);
+    setNcPreviewOpen(true);
+    
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/nonconformites/${ncId}/summary?conversation_id=${conversationId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setPreviewNCData({
+          id: ncId,
+          conversationId: conversationId, // Stocke l'ID de conversation pour les actions ultérieures
+          htmlContent: data.html
+        });
+      } else {
+        setPreviewNCData({
+          id: ncId,
+          conversationId: conversationId,
+          htmlContent: '<p style="color: red;">Erreur lors du chargement de l\'aperçu.</p>'
+        });
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement de l\'aperçu NC:', error);
+      setPreviewNCData({
+        id: ncId,
+        conversationId: conversationId,
+        htmlContent: '<p style="color: red;">Erreur lors du chargement de l\'aperçu.</p>'
+      });
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+  
+  // Exposer la fonction showNCPreview au niveau global pour les onclick inline
+  useEffect(() => {
+    window.showNCPreview = (ncId, conversationId) => {
+      showNCPreview(ncId, conversationId);
+    };
+    
+    return () => {
+      // Nettoyer la fonction globale lors du démontage
+      delete window.showNCPreview;
+    };
+  }, []);
+
   return (
     <>
       <Paper elevation={3} sx={{
@@ -680,6 +736,8 @@ function ChatAssistant() {
         boxShadow: '0 4px 24px 0 rgba(35,57,93,0.10)',
         border: `1.5px solid ${COLORS.primaryDark}20`
       }}>
+        {/* ...existing chat content... */}
+        
         {/* Menu déroulant pour choisir le mode */}
         <FormControl size="small" sx={{ mb: 1, minWidth: 120, bgcolor: COLORS.white, borderRadius: 2, boxShadow: '0 1px 4px #e3eafc' }}>
           <InputLabel id="chat-mode-label" sx={{ color: COLORS.primaryDark, fontWeight: 600 }}>Mode</InputLabel>
@@ -987,6 +1045,80 @@ function ChatAssistant() {
           anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         />
       </Paper>
+
+      {/* Modal d'aperçu NC */}
+      <Dialog 
+        open={ncPreviewOpen} 
+        onClose={() => setNcPreviewOpen(false)} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow: '0 8px 32px rgba(35,57,93,0.15)'
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          background: COLORS.gradientGreen, 
+          color: COLORS.white, 
+          fontWeight: 700,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            👁️ Aperçu Rapide - NC #{previewNCData?.id}
+          </Box>
+          <IconButton 
+            onClick={() => setNcPreviewOpen(false)}
+            sx={{ color: COLORS.white }}
+            size="small"
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        
+        <DialogContent sx={{ p: 3 }}>
+          {previewLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 200 }}>
+              <CircularProgress />
+            </Box>
+          ) : previewNCData ? (
+            <div dangerouslySetInnerHTML={{ __html: previewNCData.htmlContent }} />
+          ) : (
+            <Typography>Aucune donnée disponible.</Typography>
+          )}
+        </DialogContent>
+        
+        <DialogActions sx={{ p: 2, background: COLORS.background }}>
+          <Button 
+            onClick={() => {
+              if (previewNCData?.id) {
+                window.open(`http://127.0.0.1:8000/api/nonconformites/${previewNCData.id}/document.pdf?conversation_id=${previewNCData.conversationId || ''}&download=true`, '_blank');
+              }
+            }}
+            sx={{ 
+              background: COLORS.accentGreen, 
+              color: COLORS.white,
+              '&:hover': { background: COLORS.primaryDark },
+              mr: 1
+            }}
+          >
+            📄 Télécharger PDF
+          </Button>
+          <Button 
+            onClick={() => setNcPreviewOpen(false)} 
+            sx={{ 
+              background: COLORS.textGrey, 
+              color: COLORS.white,
+              '&:hover': { background: COLORS.primaryDark }
+            }}
+          >
+            Fermer
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

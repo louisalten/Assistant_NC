@@ -7,6 +7,8 @@ from backend.routeur import detect_prompt
 from backend.get_vector_db import get_vectorstore
 from backend.retrieval import get_relevant_documents
 from backend.ollama_thinking import ChatOllamaWithThinking
+from backend.rag_cache import rag_sources_cache  # Import du cache RAG
+import uuid  # Pour générer des identifiants uniques de conversation
 
 # Configuration
 DB_DIR = "C:/Users/lrodembourg/Documents/Test_Langchain/chroma_db"
@@ -34,13 +36,26 @@ def query_documents(query_text, ):
         source = {
             "content": doc.page_content[:200] + "...",
             "nc_id": doc.metadata.get("id_non_conformite", "Inconnu"),
-            "source": doc.metadata.get("nom_fichier_source", "Unknown")
+            "source": doc.metadata.get("nom_fichier_source", "Unknown"),
+            "full_content": doc.page_content,  # Stocker le contenu complet
+            "metadata": doc.metadata  # Stocker les métadonnées complètes
         }
         sources.append(source)
-    return result["answer"], sources
+    
+    # Générer un ID de conversation et stocker les sources dans le cache
+    conversation_id = str(uuid.uuid4())
+    rag_sources_cache.add_sources(conversation_id, sources)
+    print(f"[QUERY] Sources stockées dans le cache avec conversation_id: {conversation_id}")
+    
+    # Retourner l'ID de conversation avec la réponse et les sources
+    return result["answer"], sources, conversation_id
 
 async def query_documents_with_context(query_text: str, form_data: dict, current_section_data: dict, current_section_name: str, stream: bool, model_key:int):
     print(f"RAG: Requête: '{query_text}' pour section '{current_section_name}' ")
+    # Générer un ID de conversation unique
+    conversation_id = str(uuid.uuid4())
+    print(f"[RAG] Nouvel ID de conversation généré: {conversation_id}")
+    
     # 2. Initialisation et récupération des documents
     try:
         retrieved_docs = get_relevant_documents(
@@ -54,11 +69,26 @@ async def query_documents_with_context(query_text: str, form_data: dict, current
         print(f"ERREUR RAG: Échec de la récupération des documents: {e_ret}")
         error_message_for_client = f"Désolé, une erreur est survenue lors de la recherche d'informations : {e_ret}"
         yield {"response": error_message_for_client, "error": str(e_ret)}
-        yield {"done": True, "sources": [], "suggested_field_update": None}
+        yield {"done": True, "sources": [], "conversation_id": conversation_id, "suggested_field_update": None}
         return
 
     # 3. Construction des sources pour le client
     sources_for_client = build_sources(retrieved_docs, mode="RAG")
+    
+    # Stocker les sources complètes dans le cache
+    sources_for_cache = []
+    for doc in retrieved_docs:
+        source = {
+            "content": doc.page_content[:200] + "...",  # Aperçu pour l'UI
+            "nc_id": doc.metadata.get("id_non_conformite", "Inconnu"),
+            "source": doc.metadata.get("nom_fichier_source", "Unknown"),
+            "full_content": doc.page_content,  # Contenu complet pour le PDF/HTML
+            "metadata": doc.metadata  # Métadonnées complètes
+        }
+        sources_for_cache.append(source)
+    
+    rag_sources_cache.add_sources(conversation_id, sources_for_cache)
+    print(f"[RAG] {len(sources_for_cache)} sources stockées dans le cache avec conversation_id: {conversation_id}")
     
     print(f"RAG: Sources construites pour le client: {sources_for_client}")
 
