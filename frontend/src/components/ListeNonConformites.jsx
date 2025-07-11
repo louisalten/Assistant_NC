@@ -36,6 +36,7 @@ function ListeNonConformites() {
             <th style={{ padding: '1rem', color: COLORS.white, fontWeight: 700, letterSpacing: 0.5 }}>Reference</th>
 
             <th style={{ color: COLORS.white, fontWeight: 700, letterSpacing: 0.5 }}>Description</th>
+            <th style={{ color: COLORS.white, fontWeight: 700, letterSpacing: 0.5 }}>Criticité</th>
             <th style={{ color: COLORS.white, fontWeight: 700, letterSpacing: 0.5 }}>Responsable</th>
             <th style={{ color: COLORS.white, fontWeight: 700, letterSpacing: 0.5 }}>Statut</th>
             <th style={{ color: COLORS.white, fontWeight: 700, letterSpacing: 0.5 }}>Action</th>
@@ -43,13 +44,36 @@ function ListeNonConformites() {
         </thead>
         <tbody>
           {filtered.length === 0 ? (
-            <tr><td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: COLORS.textGrey }}>Aucune non-conformité trouvée.</td></tr>
+            <tr><td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: COLORS.textGrey }}>Aucune non-conformité trouvée.</td></tr>
           ) : filtered.map((nc, idx) => (
             <tr key={nc.id} style={{ background: nc.statut === 'En cours' ? 'rgba(35,57,93,0.07)' : 'rgba(46,204,113,0.08)', borderBottom: `1px solid #e0e7ef` }}>
               <td style={{ padding: '1rem', color: COLORS.textDark }}>{nc.id}</td>
               <td style={{ padding: '1rem', color: COLORS.textDark }}>{nc.d0_initialisation.referenceNC}</td>
 
               <td style={{ color: COLORS.textGrey }}>{nc.d0_initialisation?.descriptionInitiale || ''}</td>
+              <td style={{ color: COLORS.textGrey, padding: '1rem' }}>
+                {nc.d0_initialisation?.Criticite ? (
+                  <span style={{
+                    display: 'inline-block',
+                    minWidth: 70,
+                    textAlign: 'center',
+                    background: nc.d0_initialisation.Criticite === 'Critique' ? COLORS.error : 
+                                nc.d0_initialisation.Criticite === 'Majeure' ? '#ff9500' : 
+                                nc.d0_initialisation.Criticite === 'Mineure' ? '#28a745' : COLORS.textGrey,
+                    color: COLORS.white,
+                    borderRadius: 12,
+                    padding: '4px 0.5em',
+                    fontWeight: 600,
+                    letterSpacing: 0.3,
+                    fontSize: '0.9rem',
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.1)'
+                  }}>
+                    {nc.d0_initialisation.Criticite}
+                  </span>
+                ) : (
+                  <span style={{ color: COLORS.textGrey, fontStyle: 'italic' }}>Non définie</span>
+                )}
+              </td>
               <td style={{ color: COLORS.textGrey }}>{nc.d1_team?.chefEquipe?.prenom || ''} {nc.d1_team?.chefEquipe?.nom || ''}</td>
               <td>
                 <span style={{
