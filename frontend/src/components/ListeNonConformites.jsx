@@ -2,27 +2,67 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { COLORS } from '../colors';
 import ChatHistoryViewer from './ChatHistoryViewer';
+import { useNonConformiteApi } from '../hooks/useApi';
 
 function useQuery() {
   return new URLSearchParams(useLocation().search);
 }
 
 function ListeNonConformites() {
-  const [nonConformites, setNonConformites] = useState([]);
   const [chatHistoryOpen, setChatHistoryOpen] = useState(false);
   const [selectedNCId, setSelectedNCId] = useState(null);
   const query = useQuery();
   const navigate = useNavigate();
   const statut = query.get('statut');
+  
+  // Utilisation du hook API centralisé
+  const { loading, error, getNonConformites, deleteNonConformite } = useNonConformiteApi();
+  const [nonConformites, setNonConformites] = useState([]);
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/nonconformites')
-      .then(res => res.json())
-      .then(data => setNonConformites(data))
-      .catch(() => setNonConformites([]));
+    loadNonConformites();
   }, []);
 
+  const loadNonConformites = async () => {
+    try {
+      const data = await getNonConformites();
+      setNonConformites(data);
+    } catch (err) {
+      console.error('Erreur lors du chargement des NC:', err);
+      setNonConformites([]);
+    }
+  };
+
   const filtered = statut ? nonConformites.filter(nc => nc.statut === statut) : nonConformites;
+
+  // Affichage du chargement
+  if (loading) {
+    return (
+      <div style={{ textAlign: 'center', padding: '2rem' }}>
+        <p>Chargement des non-conformités...</p>
+      </div>
+    );
+  }
+
+  // Affichage des erreurs
+  if (error) {
+    return (
+      <div style={{ textAlign: 'center', padding: '2rem' }}>
+        <p style={{ color: COLORS.error }}>Erreur: {error}</p>
+        <button onClick={loadNonConformites} style={{
+          background: COLORS.primary,
+          color: COLORS.white,
+          border: 'none',
+          borderRadius: '6px',
+          padding: '8px 16px',
+          cursor: 'pointer',
+          marginTop: '1rem'
+        }}>
+          Réessayer
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: '2rem', background: COLORS.background, minHeight: '100vh' }}>
@@ -117,8 +157,13 @@ function ListeNonConformites() {
                 </button>
                 <button onClick={async () => {
                   if(window.confirm('Supprimer cette non-conformité ?')) {
-                    await fetch(`http://localhost:8000/api/nonconformites/${nc.id}`, { method: 'DELETE' });
-                    setNonConformites(ncs => ncs.filter(n => n.id !== nc.id));
+                    try {
+                      await deleteNonConformite(nc.id);
+                      await loadNonConformites(); // Recharger la liste
+                    } catch (err) {
+                      console.error('Erreur lors de la suppression:', err);
+                      alert('Erreur lors de la suppression');
+                    }
                   }
                 }} style={{
                   marginLeft: 8,

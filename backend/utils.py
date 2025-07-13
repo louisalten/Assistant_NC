@@ -3,21 +3,30 @@
 from typing import List, Dict
 from langchain_core.documents import Document
 
-def build_sources(docs: List[Document], mode: str = "RAG") -> List[Dict]:
+def build_sources(docs: List[Document], mode: str = "RAG", scores: List[float] = None) -> List[Dict]:
     sources = []
-    for doc in docs:
+    for i, doc in enumerate(docs):
         meta = getattr(doc, "metadata", {})
         content = getattr(doc, "page_content", "")
         nc_id = meta.get("id_non_conformite") or meta.get("Identification NC 0D", "Inconnu")
         source_file = meta.get("nom_fichier_source", "Source Manquante")
         preview = (content or "")[:150] + "..."
-        # Toujours fournir les mêmes clés
-        sources.append({
+        
+        # Préparer la source avec le score de similarité si disponible
+        source = {
             "nc_id": nc_id,
             "content": meta.get("Description du problème 0D") or preview,
             "preview": preview,
             "source_file": source_file,
-        })
+        }
+        
+        # Ajouter le score de similarité si disponible
+        if scores and i < len(scores):
+            # Convertir la distance en score de similarité (plus c'est proche de 1, plus c'est similaire)
+            similarity_score = 1 - scores[i]
+            source["similarity_score"] = round(similarity_score, 3)
+        
+        sources.append(source)
     return sources
 
 def get_source_by_id(nc_id: str, db_dir: str = "chroma_db") -> Dict:

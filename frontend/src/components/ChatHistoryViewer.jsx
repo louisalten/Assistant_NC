@@ -1,6 +1,7 @@
 // src/components/ChatHistoryViewer.jsx
 import React, { useState, useEffect } from 'react';
 import { COLORS } from '../colors';
+import apiService from '../services/apiService';
 import { Box, Paper, Avatar, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, CircularProgress } from '@mui/material';
 import ChatIcon from '@mui/icons-material/Chat';
 import PersonIcon from '@mui/icons-material/Person';
@@ -22,16 +23,10 @@ function ChatHistoryViewer({ ncId, onClose, open }) {
   const loadChatHistory = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`http://localhost:8000/api/nonconformites/${ncId}/chat-history`);
-      if (response.ok) {
-        const data = await response.json();
-        setMessages(data.messages || []);
-      } else {
-        console.warn('Aucun historique de chat trouvé pour cette NC');
-        setMessages([]);
-      }
+      const data = await apiService.getChatHistory(ncId);
+      setMessages(data.messages || []);
     } catch (error) {
-      console.error('Erreur lors du chargement de l\'historique de chat:', error);
+      console.warn('Aucun historique de chat trouvé pour cette NC');
       setMessages([]);
     } finally {
       setLoading(false);
@@ -40,11 +35,8 @@ function ChatHistoryViewer({ ncId, onClose, open }) {
 
   const loadNCInfo = async () => {
     try {
-      const response = await fetch(`http://localhost:8000/api/nonconformites/${ncId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setNcInfo(data);
-      }
+      const data = await apiService.getNonConformite(ncId);
+      setNcInfo(data);
     } catch (error) {
       console.error('Erreur lors du chargement des infos NC:', error);
     }

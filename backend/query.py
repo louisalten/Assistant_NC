@@ -58,13 +58,19 @@ async def query_documents_with_context(query_text: str, form_data: dict, current
     
     # 2. Initialisation et récupération des documents
     try:
-        retrieved_docs = get_relevant_documents(
+        retrieved_docs_with_scores = get_relevant_documents(
             query_text=query_text,
             current_section_data=current_section_data,
             current_section_name=current_section_name,
             form_data=form_data, # On passe le form_data complet
             model_key=model_key, # On passe le model_key pour flexibilité
+            return_scores=True,  # Demander les scores
         )
+        
+        # Séparer les documents et les scores
+        retrieved_docs = [doc for doc, score in retrieved_docs_with_scores]
+        similarity_scores = [score for doc, score in retrieved_docs_with_scores]
+        
     except Exception as e_ret:
         print(f"ERREUR RAG: Échec de la récupération des documents: {e_ret}")
         error_message_for_client = f"Désolé, une erreur est survenue lors de la recherche d'informations : {e_ret}"
@@ -73,17 +79,18 @@ async def query_documents_with_context(query_text: str, form_data: dict, current
         return
 
     # 3. Construction des sources pour le client
-    sources_for_client = build_sources(retrieved_docs, mode="RAG")
+    sources_for_client = build_sources(retrieved_docs, mode="RAG", scores=similarity_scores)
     
     # Stocker les sources complètes dans le cache
     sources_for_cache = []
-    for doc in retrieved_docs:
+    for i, doc in enumerate(retrieved_docs):
         source = {
             "content": doc.page_content[:200] + "...",  # Aperçu pour l'UI
             "nc_id": doc.metadata.get("id_non_conformite", "Inconnu"),
             "source": doc.metadata.get("nom_fichier_source", "Unknown"),
             "full_content": doc.page_content,  # Contenu complet pour le PDF/HTML
-            "metadata": doc.metadata  # Métadonnées complètes
+            "metadata": doc.metadata,  # Métadonnées complètes
+            "similarity_score": similarity_scores[i] if i < len(similarity_scores) else None  # Ajouter le score
         }
         sources_for_cache.append(source)
     

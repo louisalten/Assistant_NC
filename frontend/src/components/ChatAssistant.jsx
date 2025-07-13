@@ -355,7 +355,7 @@ function ChatAssistant() {
         current_section_data: currentSectionData,
         current_section_name: currentStepKey,
         mode: chatMode,
-        model_key : "dengcao_qwen3_4b",
+        model_key : "qwen_base",
         context_only: chatMode === 'REQ' // Indique au serveur de ne se baser que sur le contexte
       };
 
@@ -373,6 +373,14 @@ function ChatAssistant() {
       if (chatMode === 'REQ') {
         // Mode REQ : réponse JSON directe
         const data = await response.json();
+        console.log('[CHAT ASSISTANT] Données reçues en mode REQ:', data);
+        console.log('[CHAT ASSISTANT] Sources reçues:', data.sources);
+        if (data.sources && data.sources.length > 0) {
+          data.sources.forEach((source, i) => {
+            console.log(`[CHAT ASSISTANT] Source ${i+1}:`, source);
+            console.log(`[CHAT ASSISTANT] Score de la source ${i+1}:`, source.similarity_score);
+          });
+        }
         setMessages(prev => {
           const updatedMessages = prev.map(m => {
             if (m.conversationId === conversationId && m.isSourceBubble) {
@@ -384,6 +392,8 @@ function ChatAssistant() {
                     `<div style='background: white; margin: 8px 0; padding: 12px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);'>` +
                     `  <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;'>` +
                     `    <span style='background: #007bff; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold;'>${s.nc_id || 'N/A'}</span>` +
+                    (s.similarity_score !== undefined ? 
+                      `    <span style='background: #17a2b8; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.7em; font-weight: bold; margin-left: 8px;'>📊 ${(s.similarity_score * 100).toFixed(1)}%</span>` : '') +
                     `    <a href='http://127.0.0.1:8000/api/nonconformites/${s.nc_id}/document.pdf?conversation_id=${m.conversationId}' target='_blank' style='background: #28a745; color: white; padding: 4px 8px; border-radius: 4px; text-decoration: none; font-size: 0.75em; font-weight: bold; transition: background 0.2s; display: inline-flex; align-items: center; gap: 4px;' onmouseover='this.style.background="#218838"' onmouseout='this.style.background="#28a745"'>📄 PDF</a>` +
                     `  </div>` +
                     `  <div style='color: #666; line-height: 1.4; font-size: 0.9em; margin-bottom: 8px;'>${s.content || 'Aucun aperçu disponible'}</div>` +
@@ -574,6 +584,8 @@ function ChatAssistant() {
                           `<div style='background: white; margin: 8px 0; padding: 12px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);'>` +
                           `  <div style='display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;'>` +
                           `    <span style='background: #007bff; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold;'>${s.nc_id || 'N/A'}</span>` +
+                          (s.similarity_score !== undefined ? 
+                            `    <span style='background: #17a2b8; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.7em; font-weight: bold; margin-left: 8px;'>📊 ${(s.similarity_score * 100).toFixed(1)}%</span>` : '') +
                           `    <a href='http://127.0.0.1:8000/api/nonconformites/${s.nc_id}/document.pdf?conversation_id=${m.conversationId}' target='_blank' style='background: #28a745; color: white; padding: 4px 8px; border-radius: 4px; text-decoration: none; font-size: 0.75em; font-weight: bold; transition: background 0.2s; display: inline-flex; align-items: center; gap: 4px;' onmouseover='this.style.background="#218838"' onmouseout='this.style.background="#28a745"'>📄 PDF</a>` +
                           `  </div>` +
                           `  <div style='color: #666; line-height: 1.4; font-size: 0.9em; margin-bottom: 8px;'>${s.content || 'Aucun aperçu disponible'}</div>` +

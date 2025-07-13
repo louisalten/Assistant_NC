@@ -108,15 +108,21 @@ async def process_contextual_query(payload: QueryContextPayload):
 
     if mode == 'REQ':
         
-        docs = get_relevant_documents(
+        docs_with_scores = get_relevant_documents(
             query_text=query_text,
             current_section_data=current_section_data_8d,
             current_section_name=current_section_name_8d,
             form_data=form_data_8d,
-            model_key=model_key # <-- Assurez-vous que cet argument est bien passé !
+            model_key=model_key, # <-- Assurez-vous que cet argument est bien passé !
+            return_scores=True,  # Demander les scores pour le mode REQ aussi
         )
+        
+        # Séparer les documents et les scores
+        docs = [doc for doc, score in docs_with_scores]
+        scores = [score for doc, score in docs_with_scores]
+        
         # Formate les sources comme dans le RAG
-        sources = build_sources(docs, mode="REQ")
+        sources = build_sources(docs, mode="REQ", scores=scores)
         print("[DEBUG SOURCES RETRIEVAL] Nombre de sources récupérées:", len(sources))
         
         def simple_stream():

@@ -22,6 +22,8 @@ import ChatAssistant from './components/ChatAssistant';
 import Dashboard from './components/Dashboard'; 
 import ListeNonConformites from './components/ListeNonConformites';
 
+// Importer les services
+import apiService from './services/apiService';
 
 import { COLORS } from './colors';
 
@@ -77,8 +79,7 @@ const Form8DAndChatInterface = () => {
       
       // Charger la non-conformité depuis l'API et pré-remplir le contexte
       console.log('[APP] Chargement de la NC depuis l\'API...');
-      fetch(`http://127.0.0.1:8000/api/nonconformites/${id}`)
-        .then(res => res.json())
+      apiService.getNonConformite(id)
         .then(data => {
           console.log('[APP] Données NC reçues:', data);
           // Harmonisation : injecter toutes les sections telles que reçues du backend

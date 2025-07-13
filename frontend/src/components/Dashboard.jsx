@@ -1,37 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PieChart, Pie, Cell, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line } from 'recharts';
 import { COLORS } from '../colors';
+import { useNonConformites } from '../hooks/useApi';
 
 // Palette pour les graphes et stats
 const PIE_COLORS = [COLORS.accentBlue, COLORS.accentGreen];
 const CAT_PIE_COLORS = [COLORS.primaryDark, COLORS.accentBlue, COLORS.accentGreen, '#bdbdbd'];
 
 const Dashboard = () => {
-  const [nonConformites, setNonConformites] = useState([]);
-  const [fetchError, setFetchError] = useState(null); // Ajout pour l'erreur
+  const { nonConformites, fetchError } = useNonConformites();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    fetch('http://localhost:8000/api/nonconformites')
-      .then(res => {
-        if (!res.ok) throw new Error('API non accessible');
-        return res.json();
-      })
-      .then(data => {
-        if (Array.isArray(data)) {
-          setNonConformites(data);
-          setFetchError(null);
-        } else {
-          setNonConformites([]);
-          setFetchError('Format inattendu de la réponse API');
-        }
-      })
-      .catch((err) => {
-        setNonConformites([]);
-        setFetchError('Impossible de charger les non-conformités (API non disponible)');
-      });
-  }, []);
 
   const enCours = Array.isArray(nonConformites) ? nonConformites.filter(nc => nc.statut === 'En cours') : [];
   const resolues = Array.isArray(nonConformites) ? nonConformites.filter(nc => nc.statut === 'Résolue') : [];
@@ -116,11 +95,6 @@ const Dashboard = () => {
           <span style={{ fontSize: '2.7rem', fontWeight: 700 }}>{resolues.length}</span>
           <span style={{ fontWeight: 500, marginTop: '0.7rem', letterSpacing: 0.2 }}>NC résolues</span>
         </div>
-        {/* Statistiques */}
-        <StatCard color={COLORS.background} textColor={COLORS.textDark} icon="⏳" label="Délai moyen" value="10 jours" />
-        <StatCard color={COLORS.background} textColor={COLORS.textDark} icon="📅" label="% dans les délais" value="72%" />
-        <StatCard color={COLORS.background} textColor={COLORS.accentGreen} icon="🔄" label="Taux de récurrence" value="7%" />
-        <StatCard color={COLORS.background} textColor={COLORS.accentBlue} icon="🏅" label="Score moyen NC" value="3,8 / 5" />
       </div>
       {/* Section camembert + tableaux */}
       <div style={{ display: 'flex', justifyContent: 'center', gap: '2.5rem', flexWrap: 'wrap', marginBottom: '2.5rem' }}>

@@ -1,7 +1,5 @@
 from .get_vector_db import get_vectorstore
 
-
-
 def get_relevant_documents(
     query_text: str,
     current_section_data: dict,
@@ -9,6 +7,7 @@ def get_relevant_documents(
     form_data: dict | None = None, # Rend form_data optionnel
     k: int = 5,
     model_key : int | None = None, # Ajout de model_key pour la flexibilité
+    return_scores: bool = False,  # Nouveau paramètre pour retourner les scores
 ):
     # <<< AJOUTEZ CE BLOC DE DEBUG >>>
     print("\n" + "="*50)
@@ -48,8 +47,15 @@ def get_relevant_documents(
 
     # 2. Récupération
     vectorstore = get_vectorstore(model_key=model_key)
-    retriever = vectorstore.as_retriever(search_kwargs={"k": k})
-    docs = retriever.invoke(enriched_query)
     
-    print(f"[RETRIEVAL] {len(docs)} documents récupérés.")
-    return docs
+    if return_scores:
+        # Utilise similarity_search_with_score pour obtenir les scores
+        docs_with_scores = vectorstore.similarity_search_with_score(enriched_query, k=k)
+        print(f"[RETRIEVAL] {len(docs_with_scores)} documents récupérés avec scores.")
+        return docs_with_scores
+    else:
+        # Comportement original sans scores
+        retriever = vectorstore.as_retriever(search_kwargs={"k": k})
+        docs = retriever.invoke(enriched_query)
+        print(f"[RETRIEVAL] {len(docs)} documents récupérés.")
+        return docs

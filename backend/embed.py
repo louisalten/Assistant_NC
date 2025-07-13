@@ -196,11 +196,14 @@ def process_and_embed_documents(model: str, force_reingest: bool = False):
     # print(f"Création de la nouvelle collection '{collection_name}'...")
 
     # On ajoute les documents à CETTE collection spécifique
+    # Utilisation du client persistant avec la nouvelle approche
+    print(f"Création de la collection '{collection_name}' avec le client persistant...")
+    
     vectorstore = Chroma.from_documents(
         documents=final_documents_to_embed,
         embedding=embedding_model,
         collection_name=collection_name,
-        persist_directory=DB_DIR
+        client=client
     )
     count = vectorstore._collection.count()
 

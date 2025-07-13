@@ -7,6 +7,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import { useForm8D } from '../contexts/Form8DContext'; // Assurez-vous que ce chemin est correct
 import { useParams, useNavigate } from 'react-router-dom';
 import MainButton from '../components/MainButton';
+import { useFormApi } from '../hooks/useFormApi';
 
 // L'ordre des étapes doit être cohérent avec tabDefinitions dans App.jsx
 // et les clés dans Form8DContext.js
@@ -60,7 +61,9 @@ function D0Form({ tabKeyLabel }) {
 
   // --- Gestion des erreurs de validation (reste local à cette page) ---
   const [localErrors, setLocalErrors] = useState({});
-  const [apiStatus, setApiStatus] = useState(null); // Pour feedback utilisateur
+  
+  // Utilisation du hook API centralisé
+  const { loading, error, apiStatus, submitForm, resetStatus } = useFormApi(id);
 
   // --- Gestionnaire de Changement pour les Champs ---
   // MODIFIÉ: Ce gestionnaire met maintenant à jour le contexte via updateFormField.
@@ -101,7 +104,9 @@ function D0Form({ tabKeyLabel }) {
     if (!validatePage()) {
       return;
     }
-    setApiStatus(null);
+    
+    resetStatus();
+    
     try {
       const payload = {
         d0_initialisation: {
@@ -117,29 +122,15 @@ function D0Form({ tabKeyLabel }) {
         },
         statut: 'En cours',
       };
-      const method = id ? 'PUT' : 'POST';
-      const url = id ? `/api/nonconformites/${id}` : '/api/nonconformites';
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-      if (response.ok) {
-        setApiStatus('success');
-        if (!id && method === 'POST') {
-          // Récupère l'id de la nouvelle NC et redirige vers l'édition
-          const data = await response.json();
-          if (data && data.id) {
-            navigate(`/d0/${data.id}`); // À adapter selon ton routing
-          }
-        }
-      } else {
-        setApiStatus('error');
+      
+      const result = await submitForm(payload);
+      
+      if (!id && result?.id) {
+        // Récupère l'id de la nouvelle NC et redirige vers l'édition
+        navigate(`/d0/${result.id}`);
       }
     } catch (error) {
-      setApiStatus('error');
+      console.error('Erreur lors de la sauvegarde:', error);
     }
   };
 

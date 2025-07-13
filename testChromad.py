@@ -55,7 +55,7 @@ def list_all_collections_with_counts():
     print("Tentative de connexion au client ChromaDB persistant...")
     
     try:
-        client = chromadb.PersistentClient(DB_DIR)
+        client = chromadb.PersistentClient(path=DB_DIR)
         print("✅ Connexion au client réussie.")
         
         collections = client.list_collections()
@@ -90,7 +90,7 @@ def clean_empty_collections():
     print("Connexion au client ChromaDB persistant...")
 
     try:
-        client = chromadb.PersistentClient(DB_DIR)
+        client = chromadb.PersistentClient(path=DB_DIR)
         print("✅ Connexion réussie.")
 
         collections = client.list_collections()
@@ -132,7 +132,7 @@ def delete_collection_by_name(name: str):
     :param path: Chemin de la base persistante, si utilisé.
     """
     try:
-        client = chromadb.PersistentClient(DB_DIR)
+        client = chromadb.PersistentClient(path=DB_DIR)
         print(f"🔍 Recherche de la collection '{name}'...")
 
         # Vérifie d'abord si la collection existe
