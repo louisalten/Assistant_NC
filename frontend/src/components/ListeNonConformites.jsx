@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { COLORS } from '../colors';
 import ChatHistoryViewer from './ChatHistoryViewer';
-import { useNonConformiteApi } from '../hooks/useApi';
+import { useNonConformites } from '../hooks/useApi';
+import apiService from '../services/apiService';
 
 function useQuery() {
   return new URLSearchParams(useLocation().search);
@@ -16,22 +17,14 @@ function ListeNonConformites() {
   const statut = query.get('statut');
   
   // Utilisation du hook API centralisé
-  const { loading, error, getNonConformites, deleteNonConformite } = useNonConformiteApi();
-  const [nonConformites, setNonConformites] = useState([]);
+  const { nonConformites, loading, error, refetch } = useNonConformites();
+  const [localLoading, setLocalLoading] = useState(false);
 
   useEffect(() => {
-    loadNonConformites();
+    // Le hook useNonConformites charge automatiquement les données
   }, []);
 
-  const loadNonConformites = async () => {
-    try {
-      const data = await getNonConformites();
-      setNonConformites(data);
-    } catch (err) {
-      console.error('Erreur lors du chargement des NC:', err);
-      setNonConformites([]);
-    }
-  };
+  // Plus besoin de loadNonConformites car useNonConformites gère automatiquement le chargement
 
   const filtered = statut ? nonConformites.filter(nc => nc.statut === statut) : nonConformites;
 
@@ -49,7 +42,7 @@ function ListeNonConformites() {
     return (
       <div style={{ textAlign: 'center', padding: '2rem' }}>
         <p style={{ color: COLORS.error }}>Erreur: {error}</p>
-        <button onClick={loadNonConformites} style={{
+        <button onClick={refetch} style={{
           background: COLORS.primary,
           color: COLORS.white,
           border: 'none',
@@ -158,8 +151,8 @@ function ListeNonConformites() {
                 <button onClick={async () => {
                   if(window.confirm('Supprimer cette non-conformité ?')) {
                     try {
-                      await deleteNonConformite(nc.id);
-                      await loadNonConformites(); // Recharger la liste
+                      await apiService.deleteNonConformite(nc.id);
+                      refetch(); // Recharger la liste
                     } catch (err) {
                       console.error('Erreur lors de la suppression:', err);
                       alert('Erreur lors de la suppression');

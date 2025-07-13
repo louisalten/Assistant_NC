@@ -130,28 +130,42 @@ class ApiService {
    * Récupérer l'historique de chat pour une NC
    */
   async getChatHistory(ncId) {
-    return this.get(`/nonconformites/${ncId}/chat-history`);
+    return this.get(API_CONFIG.ENDPOINTS.CHAT_HISTORY(ncId));
   }
 
   /**
    * Sauvegarder un message de chat
    */
   async saveChatMessage(ncId, messageData) {
-    return this.post(`/nonconformites/${ncId}/chat/messages`, messageData);
+    return this.post(API_CONFIG.ENDPOINTS.CHAT_MESSAGES(ncId), messageData);
   }
 
   /**
    * Supprimer l'historique de chat
    */
   async deleteChatHistory(ncId) {
-    return this.delete(`/nonconformites/${ncId}/chat-history`);
+    return this.delete(API_CONFIG.ENDPOINTS.CHAT_HISTORY(ncId));
   }
 
   /**
    * Sauvegarder une conversation complète
    */
   async saveBulkChatHistory(ncId, conversationData) {
-    return this.post(`/nonconformites/${ncId}/chat-history/bulk`, conversationData);
+    return this.post(API_CONFIG.ENDPOINTS.CHAT_BULK_SAVE(ncId), conversationData);
+  }
+
+  /**
+   * Effacer l'historique de chat (alias pour deleteChatHistory)
+   */
+  async clearChatHistory(ncId) {
+    return this.delete(API_CONFIG.ENDPOINTS.CHAT_CLEAR(ncId));
+  }
+
+  /**
+   * Supprimer un message spécifique
+   */
+  async deleteChatMessage(ncId, messageId) {
+    return this.delete(API_CONFIG.ENDPOINTS.CHAT_MESSAGE_BY_ID(ncId, messageId));
   }
 
   // === MÉTHODES SPÉCIFIQUES - ASSISTANT IA ===
@@ -165,9 +179,30 @@ class ApiService {
 
   /**
    * Requête avec streaming (pour les réponses en temps réel)
+   * Retourne directement la response pour traitement custom
+   */
+  async queryWithStreamingResponse(queryData) {
+    const url = `${this.baseURL.replace('/api', '')}/query_with_context`;
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: this.defaultHeaders,
+      body: JSON.stringify(queryData),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: `Erreur HTTP ${response.status}` }));
+      throw new Error(errorData.detail || `Erreur serveur ${response.status}`);
+    }
+
+    return response;
+  }
+
+  /**
+   * Requête avec streaming (pour les réponses en temps réel)
    */
   async queryWithStreaming(queryData, onChunk) {
-    const url = `${this.baseURL}/query_with_context`;
+    const url = `${this.baseURL.replace('/api', '')}/query_with_context`;
     
     const response = await fetch(url, {
       method: 'POST',
@@ -193,6 +228,44 @@ class ApiService {
     } finally {
       reader.releaseLock();
     }
+  }
+
+  // === MÉTHODES DOCUMENTS ===
+
+  /**
+   * Générer l'URL pour le PDF d'une NC
+   */
+  getPdfUrl(ncId, conversationId = '', download = false) {
+    const params = new URLSearchParams();
+    if (conversationId) params.append('conversation_id', conversationId);
+    if (download) params.append('download', 'true');
+    
+    return `${this.baseURL}${API_CONFIG.ENDPOINTS.NC_PDF(ncId)}?${params.toString()}`;
+  }
+
+  /**
+   * Générer l'URL pour le résumé d'une NC
+   */
+  getSummaryUrl(ncId, conversationId = '') {
+    const params = new URLSearchParams();
+    if (conversationId) params.append('conversation_id', conversationId);
+    
+    return `${this.baseURL}${API_CONFIG.ENDPOINTS.NC_SUMMARY(ncId)}?${params.toString()}`;
+  }
+
+  /**
+   * Récupérer le résumé d'une NC
+   */
+  async getSummary(ncId, conversationId = '') {
+    const url = this.getSummaryUrl(ncId, conversationId);
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+    }
+    
+    const data = await response.json();
+    return data.html || data; // Retourne le HTML ou les données complètes
   }
 
   // === MÉTHODES UTILITAIRES ===

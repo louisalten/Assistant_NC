@@ -79,6 +79,7 @@ export const useNonConformites = () => {
   return {
     nonConformites,
     fetchError,
+    refetch: loadNonConformites, // Alias pour la cohérence
     loadNonConformites,
     setNonConformites,
     setFetchError,

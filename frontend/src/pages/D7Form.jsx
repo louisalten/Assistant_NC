@@ -6,6 +6,7 @@ import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import SaveIcon from '@mui/icons-material/Save';
 import { useForm8D } from '../contexts/Form8DContext';
 import { useParams } from 'react-router-dom';
+import { apiService } from '../services/apiService';
 
 // Importer les sous-composants 7D
 import RootCausePreventSelector from '../components/7D/RootCausePreventSelector';
@@ -143,19 +144,14 @@ function D7Form({
     // Ajoutez ici la validation si besoin
     setApiStatus(null);
     try {
-      const method = id ? 'PUT' : 'POST';
-      const url = id ? `/api/nonconformites/${id}` : '/api/nonconformites';
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form8DData),
-      });
-      if (response.ok) {
-        setApiStatus('success');
+      if (id) {
+        await apiService.updateNonConformite(id, form8DData);
       } else {
-        setApiStatus('error');
+        await apiService.createNonConformite(form8DData);
       }
+      setApiStatus('success');
     } catch (error) {
+      console.error('Erreur lors de la sauvegarde:', error);
       setApiStatus('error');
     }
   };

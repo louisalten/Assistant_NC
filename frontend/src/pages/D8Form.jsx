@@ -6,6 +6,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import { useParams } from 'react-router-dom';
+import { apiService } from '../services/apiService';
 
 // Importer le nouveau composant
 import TeamRecognition from '../components/8D/TeamRecognition'; // Ajuster le chemin si nécessaire
@@ -100,8 +101,6 @@ function D8Form({
       if (!validateForm()) return;
       setApiStatus(null);
       try {
-          const method = id ? 'PUT' : 'POST';
-          const url = id ? `/api/nonconformites/${id}` : '/api/nonconformites';
           // Correction : transformer teamAcknowledged en liste de chaînes (ex: noms)
           const { currentStepKey, ...dataToSave } = form8DData;
           if (dataToSave.d8_congratulate && Array.isArray(dataToSave.d8_congratulate.teamAcknowledged)) {
@@ -110,17 +109,15 @@ function D8Form({
               teamAcknowledged: dataToSave.d8_congratulate.teamAcknowledged.map(m => typeof m === 'string' ? m : (m.name || m.email || JSON.stringify(m)))
             };
           }
-          const response = await fetch(url, {
-              method,
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(dataToSave),
-          });
-          if (response.ok) {
-              setApiStatus('success');
+          
+          if (id) {
+              await apiService.updateNonConformite(id, dataToSave);
           } else {
-              setApiStatus('error');
+              await apiService.createNonConformite(dataToSave);
           }
+          setApiStatus('success');
       } catch (error) {
+          console.error('Erreur lors de la sauvegarde:', error);
           setApiStatus('error');
       }
   };
@@ -130,8 +127,6 @@ function D8Form({
       if (!validateForm()) return;
       setApiStatus(null);
       try {
-          const method = id ? 'PUT' : 'POST';
-          const url = id ? `/api/nonconformites/${id}` : '/api/nonconformites';
           const { currentStepKey, ...dataToSave } = form8DData;
           // Correction teamAcknowledged : liste de chaînes (nom ou email)
           if (dataToSave.d8_congratulate && Array.isArray(dataToSave.d8_congratulate.teamAcknowledged)) {
@@ -142,17 +137,15 @@ function D8Form({
           }
           // Met à jour le statut
           dataToSave.statut = 'Résolue';
-          const response = await fetch(url, {
-              method,
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(dataToSave),
-          });
-          if (response.ok) {
-              setApiStatus('success');
+          
+          if (id) {
+              await apiService.updateNonConformite(id, dataToSave);
           } else {
-              setApiStatus('error');
+              await apiService.createNonConformite(dataToSave);
           }
+          setApiStatus('success');
       } catch (error) {
+          console.error('Erreur lors de la sauvegarde:', error);
           setApiStatus('error');
       }
   };

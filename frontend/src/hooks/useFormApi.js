@@ -1,43 +1,48 @@
 // src/hooks/useFormApi.js
 
 import { useState, useCallback } from 'react';
-import { useNonConformiteApi } from './useApi';
+import apiService from '../services/apiService';
 
 /**
  * Hook spécialisé pour les formulaires 8D
  * Gère automatiquement la création/mise à jour des NC
  */
 export const useFormApi = (id = null) => {
-  const { loading, error, createNonConformite, updateNonConformite, clearError } = useNonConformiteApi();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [apiStatus, setApiStatus] = useState(null);
 
   const submitForm = useCallback(async (formData) => {
     setApiStatus(null);
-    clearError();
+    setError(null);
+    setLoading(true);
 
     try {
       let result;
       if (id) {
         // Mise à jour d'une NC existante
-        result = await updateNonConformite(id, formData);
+        result = await apiService.updateNonConformite(id, formData);
         setApiStatus('success');
       } else {
         // Création d'une nouvelle NC
-        result = await createNonConformite(formData);
+        result = await apiService.createNonConformite(formData);
         setApiStatus('success');
       }
       
       return result;
     } catch (err) {
       setApiStatus('error');
+      setError(err.message);
       throw err;
+    } finally {
+      setLoading(false);
     }
-  }, [id, createNonConformite, updateNonConformite, clearError]);
+  }, [id]);
 
   const resetStatus = useCallback(() => {
     setApiStatus(null);
-    clearError();
-  }, [clearError]);
+    setError(null);
+  }, []);
 
   return {
     loading,

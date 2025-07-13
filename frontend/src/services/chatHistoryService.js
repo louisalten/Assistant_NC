@@ -1,94 +1,43 @@
 // src/services/chatHistoryService.js
+// DEPRECATED: Ce service est remplacé par apiService.js
+// Utilisez apiService.saveChatMessage(), apiService.getChatHistory(), etc.
 
-const API_BASE_URL = 'http://localhost:8000/api';
+import apiService from './apiService';
 
+/**
+ * @deprecated Utilisez apiService à la place
+ */
 class ChatHistoryService {
   /**
-   * Sauvegarder un message de chat dans la base de données
-   * @param {number} ncId - ID de la non-conformité
-   * @param {Object} messageData - Données du message
+   * @deprecated Utilisez apiService.saveChatMessage()
    */
   async saveMessage(ncId, messageData) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/nonconformites/${ncId}/chat/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(messageData),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Erreur lors de la sauvegarde du message:', error);
-      throw error;
-    }
+    console.warn('ChatHistoryService.saveMessage() is deprecated. Use apiService.saveChatMessage() instead.');
+    return apiService.saveChatMessage(ncId, messageData);
   }
 
   /**
-   * Récupérer l'historique complet des messages pour une NC
-   * @param {number} ncId - ID de la non-conformité
+   * @deprecated Utilisez apiService.getChatHistory()
    */
   async getHistory(ncId) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/nonconformites/${ncId}/chat/messages`);
-      
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Erreur lors de la récupération de l\'historique:', error);
-      throw error;
-    }
+    console.warn('ChatHistoryService.getHistory() is deprecated. Use apiService.getChatHistory() instead.');
+    return apiService.getChatHistory(ncId);
   }
 
   /**
-   * Supprimer un message spécifique
-   * @param {number} ncId - ID de la non-conformité
-   * @param {number} messageId - ID du message à supprimer
+   * @deprecated Utilisez apiService.deleteChatMessage()
    */
   async deleteMessage(ncId, messageId) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/nonconformites/${ncId}/chat/messages/${messageId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Erreur lors de la suppression du message:', error);
-      throw error;
-    }
+    console.warn('ChatHistoryService.deleteMessage() is deprecated. Use apiService.deleteChatMessage() instead.');
+    return apiService.deleteChatMessage(ncId, messageId);
   }
 
   /**
-   * Effacer tout l'historique de chat pour une NC
-   * @param {number} ncId - ID de la non-conformité
+   * @deprecated Utilisez apiService.clearChatHistory()
    */
   async clearHistory(ncId) {
-    try {
-      const response = await fetch(`${API_BASE_URL}/nonconformites/${ncId}/chat/clear`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Erreur lors de l\'effacement de l\'historique:', error);
-      throw error;
-    }
+    console.warn('ChatHistoryService.clearHistory() is deprecated. Use apiService.clearChatHistory() instead.');
+    return apiService.clearChatHistory(ncId);
   }
 
   /**

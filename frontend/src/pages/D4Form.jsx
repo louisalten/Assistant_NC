@@ -5,6 +5,7 @@ import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import SaveIcon from '@mui/icons-material/Save';
 import { useParams } from 'react-router-dom';
+import { apiService } from '../services/apiService';
 
 // Importer les composants de section (vérifie les chemins)
 import IshikawaSection from '../components/4D/IshikawaSection';
@@ -193,19 +194,14 @@ function D4Form({ tabKeyLabel='D4', problemDescription = "Description du problè
         // Ajoutez ici la validation si besoin
         setApiStatus(null);
         try {
-            const method = id ? 'PUT' : 'POST';
-            const url = id ? `/api/nonconformites/${id}` : '/api/nonconformites';
-            const response = await fetch(url, {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(form8DData),
-            });
-            if (response.ok) {
-                setApiStatus('success');
+            if (id) {
+                await apiService.updateNonConformite(id, form8DData);
             } else {
-                setApiStatus('error');
+                await apiService.createNonConformite(form8DData);
             }
+            setApiStatus('success');
         } catch (error) {
+            console.error('Erreur lors de la sauvegarde:', error);
             setApiStatus('error');
         }
     };

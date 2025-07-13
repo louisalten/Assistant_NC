@@ -1,5 +1,5 @@
 // src/pages/D2Form.jsx (ou le nom que vous utilisez)
-import React, { useState } from 'react'; // Garder useState pour localErrors
+import React, { useState, useEffect } from 'react'; // Garder useState pour localErrors
 import { Box, Button, Typography, Grid } from '@mui/material'; // TextField n'est plus directement utilisé ici
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
@@ -11,6 +11,9 @@ import Description2DInput from '../components/2D/Description2DInput'; // Assurez
 
 // Importer le hook du contexte
 import { useForm8D } from '../contexts/Form8DContext'; // Assurez-vous que le chemin est correct
+
+// Importer le service API centralisé
+import apiService from '../services/apiService';
 
 // Importer le composant MainButton pour la centralisation des boutons
 import MainButton from '../components/MainButton';
@@ -89,18 +92,12 @@ function D2Form({ tabKeyLabel = "D2" }) { // tabKeyLabel est passé par App.jsx
     if (!validatePage()) return;
     setApiStatus(null);
     try {
-      const method = id ? 'PUT' : 'POST';
-      const url = id ? `/api/nonconformites/${id}` : '/api/nonconformites';
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form8DData),
-      });
-      if (response.ok) {
-        setApiStatus('success');
+      if (id) {
+        await apiService.updateNonConformite(id, form8DData);
       } else {
-        setApiStatus('error');
+        await apiService.createNonConformite(form8DData);
       }
+      setApiStatus('success');
     } catch (error) {
       setApiStatus('error');
     }

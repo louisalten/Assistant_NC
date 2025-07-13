@@ -8,6 +8,7 @@ import { useForm8D } from '../contexts/Form8DContext';
 import { useParams } from 'react-router-dom';
 import { COLORS } from '../colors';
 import MainButton from '../components/MainButton';
+import { apiService } from '../services/apiService';
 
 // Importer le composant pour la liste des actions
 import ActionImplementationList from '../components/6D/ActionImplementationList';
@@ -91,19 +92,14 @@ function D6Form({
     // Ajoutez ici la validation si besoin
     setApiStatus(null);
     try {
-      const method = id ? 'PUT' : 'POST';
-      const url = id ? `/api/nonconformites/${id}` : '/api/nonconformites';
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form8DData),
-      });
-      if (response.ok) {
-        setApiStatus('success');
+      if (id) {
+        await apiService.updateNonConformite(id, form8DData);
       } else {
-        setApiStatus('error');
+        await apiService.createNonConformite(form8DData);
       }
+      setApiStatus('success');
     } catch (error) {
+      console.error('Erreur lors de la sauvegarde:', error);
       setApiStatus('error');
     }
   };

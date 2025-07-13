@@ -1,6 +1,6 @@
 // src/pages/D1TeamPage.jsx (ou le nom que vous utilisez, ex: D1Form.jsx)
-import React, { useState } from 'react';
-import { Box, TextField, Button, Typography, Grid } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import { Box, TextField, Button, Typography, Grid, Alert, Paper, Divider, IconButton } from '@mui/material';
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import SaveIcon from '@mui/icons-material/Save';
@@ -8,7 +8,6 @@ import Avatar from '@mui/material/Avatar';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import CardActions from '@mui/material/CardActions';
-import IconButton from '@mui/material/IconButton';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useParams } from 'react-router-dom';
@@ -18,6 +17,7 @@ import ChefEquipe from '../components/EquipeD1/ChefEquipe'; // Renommé pour cor
 import GestionEquipe from '../components/EquipeD1/GestionEquipe';
 import { useForm8D } from '../contexts/Form8DContext'; // Ajustez le chemin si nécessaire
 import MainButton from '../components/MainButton';
+import apiService from '../services/apiService';
 
 // L'ordre des étapes doit être cohérent avec tabDefinitions dans App.jsx
 // Il est préférable de le définir une seule fois et de l'importer si possible,
@@ -124,18 +124,12 @@ function D1Form({ tabKeyLabel = "D1" }) {
       }
     };
     try {
-      const method = id ? 'PUT' : 'POST';
-      const url = id ? `/api/nonconformites/${id}` : '/api/nonconformites';
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(cleanedForm8DData),
-      });
-      if (response.ok) {
-        setApiStatus('success');
+      if (id) {
+        await apiService.updateNonConformite(id, cleanedForm8DData);
       } else {
-        setApiStatus('error');
+        await apiService.createNonConformite(cleanedForm8DData);
       }
+      setApiStatus('success');
     } catch (error) {
       setApiStatus('error');
     }

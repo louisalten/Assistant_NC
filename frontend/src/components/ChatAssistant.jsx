@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useForm8D } from '../contexts/Form8DContext';
 import { COLORS } from '../colors';
+import apiService from '../services/apiService';
 import { Box, Paper, Avatar, Typography, TextField, IconButton, CircularProgress, Snackbar, MenuItem, Select, FormControl, InputLabel, Accordion, AccordionSummary, AccordionDetails, Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import StopIcon from '@mui/icons-material/Stop';
@@ -92,15 +93,11 @@ function ChatAssistant() {
     
     try {
       console.log(`[CHAT HISTORY] Chargement de l'historique pour NC ${currentNCId}`);
-      const response = await fetch(`http://127.0.0.1:8000/api/nonconformites/${currentNCId}/chat-history`);
+      const data = await apiService.getChatHistory(currentNCId);
       
-      console.log(`[CHAT HISTORY] Réponse reçue:`, response.status, response.ok);
+      console.log(`[CHAT HISTORY] Historique chargé:`, data);
       
-      if (response.ok) {
-        const data = await response.json();
-        console.log(`[CHAT HISTORY] Historique chargé:`, data);
-        
-        if (data.messages && data.messages.length > 0) {
+      if (data.messages && data.messages.length > 0) {
           // Convertir les messages de la DB au format attendu par le frontend
           const loadedMessages = data.messages.map(msg => ({
             id: `db-${msg.id}`, // Utiliser l'ID auto-increment de la DB avec un préfixe
@@ -151,12 +148,6 @@ function ChatAssistant() {
           console.log('[CHAT HISTORY] Aucun message trouvé');
           setHistoryLoaded(true);
         }
-      } else {
-        console.error('[CHAT HISTORY] Erreur lors du chargement:', response.status);
-        const errorText = await response.text();
-        console.error('[CHAT HISTORY] Détails de l\'erreur:', errorText);
-        setHistoryLoaded(true);
-      }
     } catch (error) {
       console.error('[CHAT HISTORY] Erreur lors du chargement de l\'historique:', error);
       setHistoryLoaded(true);
@@ -239,11 +230,7 @@ function ChatAssistant() {
         is_suggestion: message.isSuggestion ? 'true' : 'false'
       };
 
-      await fetch(`http://127.0.0.1:8000/api/nonconformites/${currentNCId}/chat-history`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(messageToSave)
-      });
+      await apiService.saveChatMessage(currentNCId, messageToSave);
       
       console.log('[CHAT HISTORY] Message sauvegardé:', messageToSave.message_type, messageToSave.sender, messageToSave.conversation_id);
     } catch (error) {
@@ -359,16 +346,7 @@ function ChatAssistant() {
         context_only: chatMode === 'REQ' // Indique au serveur de ne se baser que sur le contexte
       };
 
-      const response = await fetch('http://127.0.0.1:8000/query_with_context', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: `Erreur HTTP ${response.status}` }));
-        throw new Error(errorData.detail || `Erreur serveur ${response.status}`);
-      }
+      const response = await apiService.queryWithStreamingResponse(payload);
 
       if (chatMode === 'REQ') {
         // Mode REQ : réponse JSON directe
@@ -394,7 +372,7 @@ function ChatAssistant() {
                     `    <span style='background: #007bff; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold;'>${s.nc_id || 'N/A'}</span>` +
                     (s.similarity_score !== undefined ? 
                       `    <span style='background: #17a2b8; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.7em; font-weight: bold; margin-left: 8px;'>📊 ${(s.similarity_score * 100).toFixed(1)}%</span>` : '') +
-                    `    <a href='http://127.0.0.1:8000/api/nonconformites/${s.nc_id}/document.pdf?conversation_id=${m.conversationId}' target='_blank' style='background: #28a745; color: white; padding: 4px 8px; border-radius: 4px; text-decoration: none; font-size: 0.75em; font-weight: bold; transition: background 0.2s; display: inline-flex; align-items: center; gap: 4px;' onmouseover='this.style.background="#218838"' onmouseout='this.style.background="#28a745"'>📄 PDF</a>` +
+                    `    <a href='${apiService.getPdfUrl(s.nc_id, m.conversationId)}' target='_blank' style='background: #28a745; color: white; padding: 4px 8px; border-radius: 4px; text-decoration: none; font-size: 0.75em; font-weight: bold; transition: background 0.2s; display: inline-flex; align-items: center; gap: 4px;' onmouseover='this.style.background="#218838"' onmouseout='this.style.background="#28a745"'>📄 PDF</a>` +
                     `  </div>` +
                     `  <div style='color: #666; line-height: 1.4; font-size: 0.9em; margin-bottom: 8px;'>${s.content || 'Aucun aperçu disponible'}</div>` +
                     `  <div style='border-top: 1px solid #eee; padding-top: 8px; margin-top: 8px;'>` +
@@ -586,7 +564,7 @@ function ChatAssistant() {
                           `    <span style='background: #007bff; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold;'>${s.nc_id || 'N/A'}</span>` +
                           (s.similarity_score !== undefined ? 
                             `    <span style='background: #17a2b8; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.7em; font-weight: bold; margin-left: 8px;'>📊 ${(s.similarity_score * 100).toFixed(1)}%</span>` : '') +
-                          `    <a href='http://127.0.0.1:8000/api/nonconformites/${s.nc_id}/document.pdf?conversation_id=${m.conversationId}' target='_blank' style='background: #28a745; color: white; padding: 4px 8px; border-radius: 4px; text-decoration: none; font-size: 0.75em; font-weight: bold; transition: background 0.2s; display: inline-flex; align-items: center; gap: 4px;' onmouseover='this.style.background="#218838"' onmouseout='this.style.background="#28a745"'>📄 PDF</a>` +
+                          `    <a href='${apiService.getPdfUrl(s.nc_id, m.conversationId)}' target='_blank' style='background: #28a745; color: white; padding: 4px 8px; border-radius: 4px; text-decoration: none; font-size: 0.75em; font-weight: bold; transition: background 0.2s; display: inline-flex; align-items: center; gap: 4px;' onmouseover='this.style.background="#218838"' onmouseout='this.style.background="#28a745"'>📄 PDF</a>` +
                           `  </div>` +
                           `  <div style='color: #666; line-height: 1.4; font-size: 0.9em; margin-bottom: 8px;'>${s.content || 'Aucun aperçu disponible'}</div>` +
                           `  <div style='border-top: 1px solid #eee; padding-top: 8px; margin-top: 8px;'>` +
@@ -697,21 +675,12 @@ function ChatAssistant() {
     setNcPreviewOpen(true);
     
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/nonconformites/${ncId}/summary?conversation_id=${conversationId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setPreviewNCData({
-          id: ncId,
-          conversationId: conversationId, // Stocke l'ID de conversation pour les actions ultérieures
-          htmlContent: data.html
-        });
-      } else {
-        setPreviewNCData({
-          id: ncId,
-          conversationId: conversationId,
-          htmlContent: '<p style="color: red;">Erreur lors du chargement de l\'aperçu.</p>'
-        });
-      }
+      const htmlContent = await apiService.getSummary(ncId, conversationId);
+      setPreviewNCData({
+        id: ncId,
+        conversationId: conversationId, // Stocke l'ID de conversation pour les actions ultérieures
+        htmlContent: htmlContent
+      });
     } catch (error) {
       console.error('Erreur lors du chargement de l\'aperçu NC:', error);
       setPreviewNCData({
@@ -1107,7 +1076,7 @@ function ChatAssistant() {
           <Button 
             onClick={() => {
               if (previewNCData?.id) {
-                window.open(`http://127.0.0.1:8000/api/nonconformites/${previewNCData.id}/document.pdf?conversation_id=${previewNCData.conversationId || ''}&download=true`, '_blank');
+                window.open(apiService.getPdfUrl(previewNCData.id, previewNCData.conversationId || '', true), '_blank');
               }
             }}
             sx={{ 

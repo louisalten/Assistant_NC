@@ -5,7 +5,7 @@
  */
 const API_CONFIG = {
   // URL de base selon l'environnement
-  BASE_URL: process.env.REACT_APP_API_URL || 'http://localhost:8000/api',
+  BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api',
   
   // URL alternative (pour les cas où vous avez 127.0.0.1 vs localhost)
   FALLBACK_URL: 'http://127.0.0.1:8000/api',
@@ -29,10 +29,15 @@ const API_CONFIG = {
     CHAT_HISTORY: (ncId) => `/nonconformites/${ncId}/chat-history`,
     CHAT_MESSAGES: (ncId) => `/nonconformites/${ncId}/chat/messages`,
     CHAT_MESSAGE_BY_ID: (ncId, messageId) => `/nonconformites/${ncId}/chat/messages/${messageId}`,
+    CHAT_CLEAR: (ncId) => `/nonconformites/${ncId}/chat/clear`,
     CHAT_BULK_SAVE: (ncId) => `/nonconformites/${ncId}/chat-history/bulk`,
     
     // Assistant IA
     QUERY_WITH_CONTEXT: '/query_with_context',
+    
+    // Documents
+    NC_PDF: (ncId) => `/nonconformites/${ncId}/document.pdf`,
+    NC_SUMMARY: (ncId) => `/nonconformites/${ncId}/summary`,
     
     // Santé de l'API
     HEALTH: '/health',
