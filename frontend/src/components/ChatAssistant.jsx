@@ -839,7 +839,7 @@ function ChatAssistant() {
                 <Accordion key={msg.id} defaultExpanded={false} sx={{ mb: 1.5, ml: 2, boxShadow: '0 1px 4px #e3eafc', borderRadius: 2 }}>
                   <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: '#e6f7ef', color: COLORS.primaryDark }}>
                     <Avatar sx={{ bgcolor: COLORS.accentGreen, color: COLORS.white, mr: 1, width: 32, height: 32, fontSize: '0.8rem', boxShadow: '0 1px 4px #e3eafc' }}>S</Avatar>
-                    <Typography variant="body2" sx={{ color: COLORS.primaryDark, fontWeight: 500, ml: 1 }}>Système (Sources)</Typography>
+                    <Typography variant="body2" sx={{ color: COLORS.primaryDark, fontWeight: 500, ml: 1 }}>Non-conformités sources</Typography>
                     {msg.isLoading && (
                       <CircularProgress size={16} sx={{ ml: 2, color: COLORS.primaryDark }} />
                     )}
