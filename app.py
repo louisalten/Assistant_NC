@@ -155,9 +155,9 @@ async def process_contextual_query(payload: QueryContextPayload):
 @app.post("/api/nonconformites/{nc_id}/chat/messages", response_model=schemas.ChatMessage)
 def create_chat_message(nc_id: int, message: schemas.ChatMessageCreateRequest, db: Session = Depends(get_db)):
     """Créer un nouveau message de chat pour une NC"""
-    # Vérifier que la NC existe
-    nc = crud.get_nc(db, nc_id)
-    if not nc:
+    # Vérifier que la NC existe (sans la charger complètement pour éviter les problèmes de sérialisation)
+    nc_exists = db.query(models.NonConformite).filter(models.NonConformite.id == nc_id).first()
+    if not nc_exists:
         raise HTTPException(status_code=404, detail="Non-conformité non trouvée")
     
     # Créer le message avec nonconformite_id
@@ -170,9 +170,9 @@ def create_chat_message(nc_id: int, message: schemas.ChatMessageCreateRequest, d
 @app.get("/api/nonconformites/{nc_id}/chat/messages", response_model=List[schemas.ChatMessage])
 def get_chat_history(nc_id: int, db: Session = Depends(get_db)):
     """Récupérer l'historique complet des messages de chat pour une NC"""
-    # Vérifier que la NC existe
-    nc = crud.get_nc(db, nc_id)
-    if not nc:
+    # Vérifier que la NC existe (sans la charger complètement pour éviter les problèmes de sérialisation)
+    nc_exists = db.query(models.NonConformite).filter(models.NonConformite.id == nc_id).first()
+    if not nc_exists:
         raise HTTPException(status_code=404, detail="Non-conformité non trouvée")
     
     return crud.get_chat_messages_by_nc(db, nc_id)
@@ -180,9 +180,9 @@ def get_chat_history(nc_id: int, db: Session = Depends(get_db)):
 @app.delete("/api/nonconformites/{nc_id}/chat/messages/{message_id}")
 def delete_chat_message(nc_id: int, message_id: int, db: Session = Depends(get_db)):
     """Supprimer un message de chat spécifique"""
-    # Vérifier que la NC existe
-    nc = crud.get_nc(db, nc_id)
-    if not nc:
+    # Vérifier que la NC existe (sans la charger complètement pour éviter les problèmes de sérialisation)
+    nc_exists = db.query(models.NonConformite).filter(models.NonConformite.id == nc_id).first()
+    if not nc_exists:
         raise HTTPException(status_code=404, detail="Non-conformité non trouvée")
     
     success = crud.delete_chat_message(db, message_id)
@@ -194,9 +194,9 @@ def delete_chat_message(nc_id: int, message_id: int, db: Session = Depends(get_d
 @app.delete("/api/nonconformites/{nc_id}/chat/clear")
 def clear_chat_history(nc_id: int, db: Session = Depends(get_db)):
     """Effacer tout l'historique de chat pour une NC"""
-    # Vérifier que la NC existe
-    nc = crud.get_nc(db, nc_id)
-    if not nc:
+    # Vérifier que la NC existe (sans la charger complètement pour éviter les problèmes de sérialisation)
+    nc_exists = db.query(models.NonConformite).filter(models.NonConformite.id == nc_id).first()
+    if not nc_exists:
         raise HTTPException(status_code=404, detail="Non-conformité non trouvée")
     
     success = crud.clear_chat_history_for_nc(db, nc_id)
@@ -206,8 +206,9 @@ def clear_chat_history(nc_id: int, db: Session = Depends(get_db)):
 @app.get("/api/nonconformites/{nc_id}/chat-history", response_model=schemas.ChatHistoryResponse)
 def get_chat_history(nc_id: int, db: Session = Depends(get_db)):
     """Récupérer l'historique de chat pour une NC"""
-    nc = crud.get_nc(db, nc_id)
-    if not nc:
+    # Vérifier que la NC existe (sans la charger complètement pour éviter les problèmes de sérialisation)
+    nc_exists = db.query(models.NonConformite).filter(models.NonConformite.id == nc_id).first()
+    if not nc_exists:
         raise HTTPException(status_code=404, detail="Non-conformité non trouvée")
     
     messages = crud.get_chat_history(db, nc_id)
@@ -223,7 +224,7 @@ def save_chat_message(nc_id: int, message: schemas.ChatMessageCreateRequest, db:
         print(f"🔍 Tentative de sauvegarde pour NC {nc_id}")
         print(f"🔍 Message reçu: {message.dict()}")
         
-        # Vérifier que la NC existe (sans la charger complètement pour éviter les problèmes de dict)
+        # Vérifier que la NC existe (sans la charger complètement pour éviter les problèmes de sérialisation)
         nc_exists = db.query(models.NonConformite).filter(models.NonConformite.id == nc_id).first()
         if not nc_exists:
             raise HTTPException(status_code=404, detail="Non-conformité non trouvée")
@@ -251,8 +252,9 @@ def save_chat_message(nc_id: int, message: schemas.ChatMessageCreateRequest, db:
 @app.post("/api/nonconformites/{nc_id}/chat-history/bulk")
 def save_chat_conversation(nc_id: int, messages: List[dict] = Body(...), db: Session = Depends(get_db)):
     """Sauvegarder une conversation complète"""
-    nc = crud.get_nc(db, nc_id)
-    if not nc:
+    # Vérifier que la NC existe (sans la charger complètement pour éviter les problèmes de sérialisation)
+    nc_exists = db.query(models.NonConformite).filter(models.NonConformite.id == nc_id).first()
+    if not nc_exists:
         raise HTTPException(status_code=404, detail="Non-conformité non trouvée")
     
     result = crud.save_chat_conversation(db, nc_id, messages)
@@ -261,8 +263,9 @@ def save_chat_conversation(nc_id: int, messages: List[dict] = Body(...), db: Ses
 @app.delete("/api/nonconformites/{nc_id}/chat-history")
 def clear_chat_history(nc_id: int, db: Session = Depends(get_db)):
     """Supprimer l'historique de chat pour une NC"""
-    nc = crud.get_nc(db, nc_id)
-    if not nc:
+    # Vérifier que la NC existe (sans la charger complètement pour éviter les problèmes de sérialisation)
+    nc_exists = db.query(models.NonConformite).filter(models.NonConformite.id == nc_id).first()
+    if not nc_exists:
         raise HTTPException(status_code=404, detail="Non-conformité non trouvée")
     
     result = crud.delete_chat_history(db, nc_id)
