@@ -8,6 +8,7 @@ from backend.get_vector_db import get_vectorstore
 from backend.retrieval import get_relevant_documents
 from backend.ollama_thinking import ChatOllamaWithThinking
 from backend.rag_cache import rag_sources_cache  # Import du cache RAG
+from backend.step_retrieval_config import step_retrieval_config  # Import de la config étapes
 import uuid  # Pour générer des identifiants uniques de conversation
 
 # Configuration
@@ -102,43 +103,27 @@ async def query_documents_with_context(query_text: str, form_data: dict, current
     # 4. Formatage du contexte pour le LLM (contexte NC actuelle + retrieved_docs)
     context_to_pass_to_llm = [] # Initialisation
     
-    # 4.1. Ajout du contexte de la NC actuelle en premier (TOUJOURS INCLUS)
-    current_nc_context_parts = ["=== CONTEXTE DE LA NON-CONFORMITÉ ACTUELLE ==="]
+    # 4.1. Construction du contexte selon la configuration de l'étape
+    context_fields = step_retrieval_config.get_context_fields(current_section_name)
+    print(f"[RAG] Champs de contexte pour {current_section_name}: {context_fields}")
     
-    # Ajouter la description initiale si disponible
-    if form_data and form_data.get('d0_initialisation', {}).get('descriptionInitiale'):
-        desc_initiale = form_data['d0_initialisation']['descriptionInitiale']
-        current_nc_context_parts.append(f"Description du problème (D0): {desc_initiale}")
+    # 4.2. Ajout du contexte de la NC actuelle (selon les champs configurés)
+    current_nc_context_parts = [f"=== CONTEXTE DE LA NON-CONFORMITÉ ACTUELLE ({current_section_name}) ==="]
     
-    # Ajouter le contexte de la section actuelle
-    if current_section_data:
-        current_nc_context_parts.append(f"Données de la section actuelle ({current_section_name}):")
-        for key, value in current_section_data.items():
-            if value and key != 'id':
-                current_nc_context_parts.append(f"  - {key}: {value}")
-    
-    # Ajouter d'autres sections pertinentes du formulaire 8D si disponibles
+    # Ajouter les champs configurés pour cette étape
     if form_data:
-        # Équipe D1
-        if form_data.get('d1_team') and any(form_data['d1_team'].values()):
-            current_nc_context_parts.append("Équipe constituée (D1):")
-            for key, value in form_data['d1_team'].items():
-                if value:
-                    current_nc_context_parts.append(f"  - {key}: {value}")
-        
-        # QQOQCCP D2
-        if form_data.get('d2_qqoqccp') and any(form_data['d2_qqoqccp'].values()):
-            current_nc_context_parts.append("Analyse QQOQCCP (D2):")
-            for key, value in form_data['d2_qqoqccp'].items():
-                if value and key != 'id':
-                    current_nc_context_parts.append(f"  - {key}: {value}")
-        
-        # Actions curatives D3
-        if form_data.get('d3_actions') and any(form_data['d3_actions'].values()):
-            current_nc_context_parts.append("Actions curatives (D3):")
-            for key, value in form_data['d3_actions'].items():
-                if value and key != 'id':
-                    current_nc_context_parts.append(f"  - {key}: {value}")
+        # Parcourir toutes les sections du formulaire pour trouver les champs
+        for section_key, section_data in form_data.items():
+            if section_data and isinstance(section_data, dict):
+                for field in context_fields:
+                    if field in section_data and section_data[field]:
+                        current_nc_context_parts.append(f"{field}: {section_data[field]}")
+    
+    # Ajouter les données de la section actuelle
+    if current_section_data:
+        for field in context_fields:
+            if field in current_section_data and current_section_data[field]:
+                current_nc_context_parts.append(f"{field} (section actuelle): {current_section_data[field]}")
     
     current_nc_context_parts.append("=== FIN CONTEXTE NC ACTUELLE ===\n")
     
@@ -149,11 +134,11 @@ async def query_documents_with_context(query_text: str, form_data: dict, current
     )
     context_to_pass_to_llm.append(current_nc_context_doc)
     
-    # 4.2. Ajout des documents similaires récupérés
+    # 4.3. Ajout des documents similaires récupérés (déjà filtrés par étape)
     if retrieved_docs:
-        print(f"RAG: Formatage du contexte pour le LLM à partir de {len(retrieved_docs)} documents similaires.")
+        print(f"RAG: Formatage du contexte pour le LLM à partir de {len(retrieved_docs)} documents similaires (filtrés pour {current_section_name}).")
         context_to_pass_to_llm.append(Document(
-            page_content="=== EXEMPLES DE NON-CONFORMITÉS SIMILAIRES ===",
+            page_content=f"=== EXEMPLES DE NON-CONFORMITÉS SIMILAIRES (PERTINENTS POUR {current_section_name.upper()}) ===",
             metadata={"source": "separator", "type": "separator"}
         ))
         
@@ -162,20 +147,20 @@ async def query_documents_with_context(query_text: str, form_data: dict, current
                 if hasattr(doc_to_format, 'page_content') and doc_to_format.page_content:
                     context_to_pass_to_llm.append(Document(page_content=doc_to_format.page_content, metadata={}))
                 continue
-#Quelle partie spécifique du document doit on envoyé en fonction de l'étape actuelle  
+            
+            # Les documents sont déjà filtrés avec les champs pertinents par extract_relevant_fields_from_docs
+            # On utilise directement le contenu formaté
             nc_id_ctx = doc_to_format.metadata.get("id_non_conformite", "Non spécifié")
-            desc_probleme_ctx = doc_to_format.metadata.get("Description du problème 0D", "")
-            cause_racine_ctx = doc_to_format.metadata.get("Cause Racine 4D", "")
-            actions_5d_ctx = doc_to_format.metadata.get("Action(s) systémique(s) 5D", "")
             
-            single_doc_context_parts = [f"--- Document Pertinent Réf. NC: {nc_id_ctx} ---"]
-            if desc_probleme_ctx: single_doc_context_parts.append(f"Description du Problème: {desc_probleme_ctx}")
-            if cause_racine_ctx: single_doc_context_parts.append(f"Cause Racine Identifiée: {cause_racine_ctx}")
-            if actions_5d_ctx: single_doc_context_parts.append(f"Actions Correctives (5D): {actions_5d_ctx}")
+            single_doc_context_parts = [f"--- NC Similaire {nc_id_ctx} (pertinente pour {current_section_name}) ---"]
+            
+            # Le contenu est déjà structuré avec les champs pertinents à l'étape
             if hasattr(doc_to_format, 'page_content') and doc_to_format.page_content:
-                 single_doc_context_parts.append(f"Informations textuelles complémentaires du document:\n{doc_to_format.page_content}")
+                single_doc_context_parts.append(doc_to_format.page_content)
             
-            formatted_page_content_for_llm = "\n".join(single_doc_context_parts) + "\n--- Fin Document Pertinent ---\n"
+            single_doc_context_parts.append("--- Fin NC Similaire ---\n")
+            
+            formatted_page_content_for_llm = "\n".join(single_doc_context_parts)
             
             context_to_pass_to_llm.append(
                 Document(page_content=formatted_page_content_for_llm, metadata=doc_to_format.metadata)
