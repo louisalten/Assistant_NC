@@ -12,6 +12,19 @@ from .prompts import (
     prompt_8D_7,
     prompt_8D_8,
 )
+from.prompts_phi4 import (
+    prompt_8D_1_template,
+    prompt_8D_2_template,
+    prompt_8D_3_template,
+    prompt_8D_4_main_oeuvre_template,
+    prompt_8D_4_materiel_template,
+    prompt_8D_4_matiere_template,
+    prompt_8D_4_methode_template,
+    prompt_8D_4_milieu_template,
+    prompt_8D_4_5why_template,
+    prompt_8D_5_corrective_template,
+)
+from .ollama_thinking import ChatOllamaWithThinking
 
 
 def detect_prompt(user_query: str, step: str = None):

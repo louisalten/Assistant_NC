@@ -5,9 +5,17 @@ from .field_mapping import get_csv_field_name, get_qqoqccp_fields, get_ishikawa_
 def extract_relevant_fields_from_docs(docs, current_section_name: str):
     """
     Extrait les champs pertinents des documents selon la configuration de l'étape 8D
+    Combine retrieve_fields (spécifiques à l'étape) + context_fields (contexte supplémentaire)
     """
     retrieve_fields = step_retrieval_config.get_retrieve_fields(current_section_name)
-    print(f"[RETRIEVAL] Champs à extraire pour {current_section_name}: {retrieve_fields}")
+    context_fields = step_retrieval_config.get_context_fields(current_section_name)
+    
+    # Combiner les champs spécifiques à l'étape + les champs de contexte supplémentaires
+    all_fields_to_extract = list(set(retrieve_fields + context_fields))
+    
+    print(f"[RETRIEVAL] Champs spécifiques étape {current_section_name}: {retrieve_fields}")
+    print(f"[RETRIEVAL] Champs contexte supplémentaires: {context_fields}")
+    print(f"[RETRIEVAL] Total champs à extraire des NCs similaires: {all_fields_to_extract}")
     
     extracted_docs = []
     
@@ -20,8 +28,8 @@ def extract_relevant_fields_from_docs(docs, current_section_name: str):
         nc_id = metadata.get("id_non_conformite", metadata.get("Identification NC 0D", "Inconnu"))
         relevant_content_parts.append(f"=== NC {nc_id} ===")
         
-        # Extraire les champs selon la configuration
-        for field in retrieve_fields:
+        # Extraire les champs selon la configuration (retrieve_fields + context_fields)
+        for field in all_fields_to_extract:
             field_value = None
             
             # Utiliser le mapping pour trouver le bon nom de colonne

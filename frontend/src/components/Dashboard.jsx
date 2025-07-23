@@ -111,42 +111,6 @@ const Dashboard = () => {
             <Legend />
           </PieChart>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          <div style={{ background: COLORS.white, borderRadius: '14px', boxShadow: '0 2px 8px rgba(35,57,93,0.06)', padding: '1.5rem', minWidth: 340 }}>
-            <h3 style={{ textAlign: 'center', color: COLORS.textDark, fontWeight: 700, letterSpacing: 0.5 }}>TOP 3</h3>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '1rem' }}>
-              <thead>
-                <tr style={{ background: COLORS.background }}>
-                  <th>Collaborateurs</th><th>Niveau</th><th>NC traitées</th><th>Score moyen</th>
-                </tr>
-              </thead>
-              <tbody>
-                {top3.map((row, i) => (
-                  <tr key={i} style={{ textAlign: 'center' }}>
-                    <td>{row.nom}</td><td>{row.niveau}</td><td>{row.nc}</td><td>{row.score}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div style={{ background: COLORS.white, borderRadius: '14px', boxShadow: '0 2px 8px rgba(35,57,93,0.06)', padding: '1.5rem', minWidth: 340 }}>
-            <h3 style={{ textAlign: 'center', color: COLORS.error, fontWeight: 700, letterSpacing: 0.5 }}>En difficulté</h3>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '1rem' }}>
-              <thead>
-                <tr style={{ background: COLORS.background }}>
-                  <th>Collaborateurs</th><th>Niveau</th><th>NC traitées</th><th>Score moyen</th>
-                </tr>
-              </thead>
-              <tbody>
-                {difficulte.map((row, i) => (
-                  <tr key={i} style={{ textAlign: 'center' }}>
-                    <td>{row.nom}</td><td>{row.niveau}</td><td>{row.nc}</td><td>{row.score}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
       </div>
       {/* Graphiques et alertes */}
       <div style={{ display: 'flex', justifyContent: 'center', gap: '2.5rem', flexWrap: 'wrap' }}>

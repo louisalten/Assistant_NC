@@ -18,7 +18,7 @@ ollama_endpoint = "http://localhost:11434"
 def query_documents(query_text, ):
     vectorstore = get_vectorstore()
     llm = ChatOllama(
-        model="qwen3:14b",
+        model="phi4-reasoning",
         num_ctx=4096,
         temperature=0.5,
         base_url=ollama_endpoint,
@@ -103,27 +103,25 @@ async def query_documents_with_context(query_text: str, form_data: dict, current
     # 4. Formatage du contexte pour le LLM (contexte NC actuelle + retrieved_docs)
     context_to_pass_to_llm = [] # Initialisation
     
-    # 4.1. Construction du contexte selon la configuration de l'étape
+    # 4.1. Construction du contexte de la NC actuelle selon la configuration de l'étape
     context_fields = step_retrieval_config.get_context_fields(current_section_name)
-    print(f"[RAG] Champs de contexte pour {current_section_name}: {context_fields}")
+    print(f"[RAG] Champs de contexte pour la NC actuelle ({current_section_name}): {context_fields}")
     
-    # 4.2. Ajout du contexte de la NC actuelle (selon les champs configurés)
     current_nc_context_parts = [f"=== CONTEXTE DE LA NON-CONFORMITÉ ACTUELLE ({current_section_name}) ==="]
     
-    # Ajouter les champs configurés pour cette étape
+    # Ajouter les champs configurés pour cette étape depuis form_data
     if form_data:
-        # Parcourir toutes les sections du formulaire pour trouver les champs
         for section_key, section_data in form_data.items():
             if section_data and isinstance(section_data, dict):
                 for field in context_fields:
                     if field in section_data and section_data[field]:
                         current_nc_context_parts.append(f"{field}: {section_data[field]}")
     
-    # Ajouter les données de la section actuelle
+    # Ajouter les données de la section actuelle (tous les champs)
     if current_section_data:
-        for field in context_fields:
-            if field in current_section_data and current_section_data[field]:
-                current_nc_context_parts.append(f"{field} (section actuelle): {current_section_data[field]}")
+        for field, value in current_section_data.items():
+            if value:
+                current_nc_context_parts.append(f"{field} (section actuelle): {value}")
     
     current_nc_context_parts.append("=== FIN CONTEXTE NC ACTUELLE ===\n")
     
@@ -134,9 +132,9 @@ async def query_documents_with_context(query_text: str, form_data: dict, current
     )
     context_to_pass_to_llm.append(current_nc_context_doc)
     
-    # 4.3. Ajout des documents similaires récupérés (déjà filtrés par étape)
+    # 4.3. Ajout des documents similaires récupérés (déjà enrichis avec retrieve_fields + context_fields)
     if retrieved_docs:
-        print(f"RAG: Formatage du contexte pour le LLM à partir de {len(retrieved_docs)} documents similaires (filtrés pour {current_section_name}).")
+        print(f"RAG: Formatage du contexte pour le LLM à partir de {len(retrieved_docs)} documents similaires (enrichis avec retrieve_fields + context_fields pour {current_section_name}).")
         context_to_pass_to_llm.append(Document(
             page_content=f"=== EXEMPLES DE NON-CONFORMITÉS SIMILAIRES (PERTINENTS POUR {current_section_name.upper()}) ===",
             metadata={"source": "separator", "type": "separator"}
@@ -174,7 +172,7 @@ async def query_documents_with_context(query_text: str, form_data: dict, current
 
     # 5. Préparation chaîne LLM avec mode thinking réactivé
     llm = ChatOllamaWithThinking(
-        model="qwen3:14b",
+        model="phi4-reasoning",
         num_ctx=16384,
         temperature=0.7,
         base_url=ollama_endpoint,
