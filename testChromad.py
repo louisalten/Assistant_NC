@@ -1,8 +1,8 @@
 # new_script_debug_chroma.py
 import chromadb
+from config import DB_DIR  # Import de la configuration centralisée
 
 # Configurez avec les mêmes paramètres que votre application
-DB_DIR = "C:/Users/lrodembourg/Documents/Test_Langchain/chroma_db" # Assurez-vous que c'est le bon chemin si vous utilisez persist_directory
 COLLECTION_NAME = "dengcao_Qwen3-Embedding-0.6B_f16"
 
 # def inspect_collection():

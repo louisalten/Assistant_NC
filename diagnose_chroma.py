@@ -2,8 +2,7 @@ import chromadb
 import os
 from pathlib import Path
 import sqlite3
-
-DB_DIR = "C:/Users/lrodembourg/Documents/Test_Langchain/chroma_db"
+from config import DB_DIR  # Import de la configuration centralisée
 
 def diagnose_chroma_db():
     """Diagnostic complet de la base de données ChromaDB"""

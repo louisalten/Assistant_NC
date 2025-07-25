@@ -3,53 +3,15 @@ from langchain_ollama import ChatOllama
 from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate # Pour le prompt par défaut
 from backend.utils import  build_sources
-from backend.routeur import detect_prompt
+from backend.routeur import detect_prompt, get_prompt_for_step
 from backend.get_vector_db import get_vectorstore
 from backend.retrieval import get_relevant_documents
 from backend.ollama_thinking import ChatOllamaWithThinking
 from backend.rag_cache import rag_sources_cache  # Import du cache RAG
 from backend.step_retrieval_config import step_retrieval_config  # Import de la config étapes
+from config import OLLAMA_ENDPOINT  # Import de la configuration centralisée
 import uuid  # Pour générer des identifiants uniques de conversation
 
-# Configuration
-DB_DIR = "C:/Users/lrodembourg/Documents/Test_Langchain/chroma_db"
-ollama_endpoint = "http://localhost:11434"
-
-def query_documents(query_text, ):
-    vectorstore = get_vectorstore()
-    llm = ChatOllama(
-        model="phi4-reasoning",
-        num_ctx=4096,
-        temperature=0.5,
-        base_url=ollama_endpoint,
-    )
-    selected_prompt = detect_prompt(query_text)
-    # Création des composants RAG
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
-    retrieved_docs = retriever.invoke(query_text)
-    from langchain.chains.combine_documents import create_stuff_documents_chain
-    from langchain.chains import create_retrieval_chain
-    question_answer_chain = create_stuff_documents_chain(llm, selected_prompt)
-    rag_chain = create_retrieval_chain(lambda q: retrieved_docs, question_answer_chain)
-    result = rag_chain.invoke({"input": query_text})
-    sources = []
-    for doc in result.get("context", []):
-        source = {
-            "content": doc.page_content[:200] + "...",
-            "nc_id": doc.metadata.get("id_non_conformite", "Inconnu"),
-            "source": doc.metadata.get("nom_fichier_source", "Unknown"),
-            "full_content": doc.page_content,  # Stocker le contenu complet
-            "metadata": doc.metadata  # Stocker les métadonnées complètes
-        }
-        sources.append(source)
-    
-    # Générer un ID de conversation et stocker les sources dans le cache
-    conversation_id = str(uuid.uuid4())
-    rag_sources_cache.add_sources(conversation_id, sources)
-    print(f"[QUERY] Sources stockées dans le cache avec conversation_id: {conversation_id}")
-    
-    # Retourner l'ID de conversation avec la réponse et les sources
-    return result["answer"], sources, conversation_id
 
 async def query_documents_with_context(query_text: str, form_data: dict, current_section_data: dict, current_section_name: str, stream: bool, model_key:int):
     print(f"RAG: Requête: '{query_text}' pour section '{current_section_name}' ")
@@ -175,13 +137,15 @@ async def query_documents_with_context(query_text: str, form_data: dict, current
         model="phi4-reasoning",
         num_ctx=16384,
         temperature=0.7,
-        base_url=ollama_endpoint,
+        base_url=OLLAMA_ENDPOINT,
         top_k=20,
         top_p=0.95,
         thinking_mode=True
     )
 
-    selected_prompt = detect_prompt(query_text, step=current_section_name if 'step' in detect_prompt.__code__.co_varnames else None)
+    # Sélection du prompt basée sur l'étape choisie dans la dropdown
+    selected_prompt = get_prompt_for_step(current_section_name, query_text)
+    print(f"[RAG] Prompt sélectionné pour l'étape {current_section_name}: {type(selected_prompt).__name__}")
 
     # LOG PROMPT COMPLET
     # Récupère le template string du prompt

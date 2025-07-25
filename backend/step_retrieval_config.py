@@ -85,7 +85,7 @@ class StepRetrievalConfig:
                 }
             },
             
-            "d2_qqoqccp": {
+            "d2_problem": {
                 "search_fields": {
                     # EXPERT 8D: Recherche patterns QQOQCCP pour structurer l'analyse
                     "from_current_nc": [

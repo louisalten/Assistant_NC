@@ -2,8 +2,7 @@ from langchain_chroma import Chroma
 import chromadb
 # Assurez-vous que le chemin d'import est correct pour votre projet
 from .embed import get_embedding_model, get_collection_name_from_model_id
-from config import get_model_id
-DB_DIR = "C:/Users/lrodembourg/Documents/Test_Langchain/chroma_db" # Assurez-vous que c'est le bon chemin si vous utilisez persist_directory
+from config import get_model_id, DB_DIR  # Import de la configuration centralisée
 
 
 # --- NOUVEAU : Initialisation du client persistant au niveau du module ---

@@ -20,6 +20,7 @@ function ChatAssistant() {
   const [isOverallLoading, setIsOverallLoading] = useState(false); // Pour le spinner global de l'input
   const [error, setError] = useState(null);
   const [chatMode, setChatMode] = useState('CHAT'); // 'CHAT' ou 'REQ'
+  const [selectedStep, setSelectedStep] = useState('d0_initialisation'); // Étape sélectionnée pour l'aide
   const [historyLoaded, setHistoryLoaded] = useState(false); // Pour tracker si l'historique a été chargé
   const [autoScroll, setAutoScroll] = useState(true); // Pour contrôler le scroll automatique
   const [ncPreviewOpen, setNcPreviewOpen] = useState(false); // Modal d'aperçu NC
@@ -32,7 +33,31 @@ function ChatAssistant() {
 
   const { getAllFormData, currentStepKey, form8DData, updateFormField, currentNCId } = useForm8D();
 
+  // Options pour la liste déroulante des étapes
+  const stepOptions = [
+    { value: 'd0_initialisation', label: 'D0 - Initialisation' },
+    { value: 'd1_team', label: 'D1 - Formation de l\'équipe' },
+    { value: 'd2_problem', label: 'D2 - Description du problème (QQOQCCP)' },
+    { value: 'd3_containment', label: 'D3 - Actions de containment' },
+    { value: 'd4_rootcause_main_oeuvre', label: 'D4 - Causes racines (Main-d\'œuvre)' },
+    { value: 'd4_rootcause_materiel', label: 'D4 - Causes racines (Matériel)' },
+    { value: 'd4_rootcause_matiere', label: 'D4 - Causes racines (Matière)' },
+    { value: 'd4_rootcause_methode', label: 'D4 - Causes racines (Méthode)' },
+    { value: 'd4_rootcause_milieu', label: 'D4 - Causes racines (Milieu)' },
+    { value: 'd5_correctiveactions', label: 'D5 - Actions correctives' },
+    { value: 'd6_implementvalidate', label: 'D6 - Implémentation et validation' },
+    { value: 'd7_preventrecurrence', label: 'D7 - Prévention de la récurrence' },
+    { value: 'd8_congratulate', label: 'D8 - Félicitations de l\'équipe' },
+  ];
+
   console.log('[CHAT ASSISTANT] Rendu avec currentNCId:', currentNCId);
+
+  // Initialiser selectedStep avec l'étape actuelle du formulaire
+  useEffect(() => {
+    if (currentStepKey && stepOptions.find(option => option.value === currentStepKey)) {
+      setSelectedStep(currentStepKey);
+    }
+  }, [currentStepKey]);
 
   const scrollToBottom = () => {
     if (autoScroll && chatMessagesRef.current) {
@@ -302,6 +327,8 @@ function ChatAssistant() {
     // Reset le tracker des bulles pour cette nouvelle conversation
     bubblesCreatedRef.current = { think: false, response: false, sources: false };
     
+    console.log(`[CHAT] Étape sélectionnée pour l'aide: ${selectedStep} (${stepOptions.find(opt => opt.value === selectedStep)?.label})`);
+    
     if (chatMode === 'CHAT') {
       // Mode CHAT : créer d'abord la bulle utilisateur
       const userMsg = { 
@@ -320,7 +347,7 @@ function ChatAssistant() {
         return newMessages;
       });
       // Sauvegarder le message utilisateur
-      saveChatMessage(userMsg, currentStepKey);
+      saveChatMessage(userMsg, selectedStep);
     } else {
       // Mode REQ : créer seulement la bulle de sources
       const sourcesMsg = { id: uuidv4(), htmlText: '', sender: 'system', type: 'source', isSourceBubble: true, conversationId, isLoading: true };
@@ -340,7 +367,7 @@ function ChatAssistant() {
         query: chatMode === 'CHAT' ? text : '', // Envoie la question seulement en mode CHAT
         form_data: all8DData,
         current_section_data: currentSectionData,
-        current_section_name: currentStepKey,
+        current_section_name: selectedStep, // Utilise l'étape sélectionnée dans la dropdown
         mode: chatMode,
         model_key : "qwen_base",
         context_only: chatMode === 'REQ' // Indique au serveur de ne se baser que sur le contexte
@@ -544,13 +571,13 @@ function ChatAssistant() {
                   if (m.type === 'think' && m.partialText) {
                     const finalThinkMsg = { ...m, text: m.partialText, partialText: undefined, isLoading: false };
                     // Sauvegarder la bulle de réflexion finale
-                    saveChatMessage(finalThinkMsg, currentStepKey);
+                    saveChatMessage(finalThinkMsg, selectedStep);
                     return finalThinkMsg;
                   }
                   if (m.type === 'response' && m.partialText) {
                     const finalResponseMsg = { ...m, text: m.partialText, partialText: undefined, isLoading: false };
                     // Sauvegarder la bulle de réponse finale
-                    saveChatMessage(finalResponseMsg, currentStepKey);
+                    saveChatMessage(finalResponseMsg, selectedStep);
                     return finalResponseMsg;
                   }
                   if (m.isSourceBubble) {
@@ -980,6 +1007,34 @@ function ChatAssistant() {
             </IconButton>
           </Box>
         )}
+        
+        {/* Sélecteur d'étape pour l'aide */}
+        <Box sx={{ mb: 1, px: 1 }}>
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <InputLabel>Étape d'aide</InputLabel>
+            <Select
+              value={selectedStep}
+              onChange={(e) => setSelectedStep(e.target.value)}
+              label="Étape d'aide"
+              sx={{ 
+                bgcolor: COLORS.white, 
+                borderRadius: 1,
+                '& .MuiSelect-select': {
+                  fontSize: '0.875rem'
+                }
+              }}
+            >
+              {stepOptions.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <Typography variant="caption" sx={{ ml: 2, color: COLORS.textGrey, fontStyle: 'italic' }}>
+            Choisissez l'étape pour laquelle vous voulez de l'aide (actuellement : {stepOptions.find(opt => opt.value === selectedStep)?.label})
+          </Typography>
+        </Box>
         
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pt:1, borderTop: '1px solid', borderColor: '#e3eafc', background: COLORS.white, borderRadius: 2, boxShadow: '0 1px 4px #e3eafc' }}>
           {chatMode === 'CHAT' ? (

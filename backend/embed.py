@@ -11,10 +11,11 @@ import re
 import chromadb
 
 
-# Configuration des chemins
-DOCUMENTS_DIR = "C:\\Users\\lrodembourg\\Documents\\Test_Langchain\\documents" # Assure-toi que c'est le bon
-DB_DIR = "C:/Users/lrodembourg/Documents/Test_Langchain/chroma_db" # Utilise un nom de dossier spécifique pour cette base
-ollama_endpoint = "http://localhost:11434"
+# Configuration des chemins - Importé depuis le fichier de configuration centralisé
+from config import DB_DIR, DOCUMENTS_DIR_STR, OLLAMA_ENDPOINT
+
+DOCUMENTS_DIR = DOCUMENTS_DIR_STR  # Pour compatibilité avec le code existant
+ollama_endpoint = OLLAMA_ENDPOINT  # Pour compatibilité avec le code existant
 
 # --- Fonction d'ingestion CSV CORRIGÉE et AMÉLIORÉE ---
 def load_csv_for_rag(file_path):

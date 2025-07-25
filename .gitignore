@@ -21,6 +21,7 @@ frontend/.cache/
 frontend/.turbo/
 
 # Données locales
+chroma_db/
 .chroma_db/
 *.log
 

@@ -29,13 +29,17 @@ def build_sources(docs: List[Document], mode: str = "RAG", scores: List[float] =
         sources.append(source)
     return sources
 
-def get_source_by_id(nc_id: str, db_dir: str = "chroma_db") -> Dict:
+def get_source_by_id(nc_id: str, db_dir: str = None) -> Dict:
     """
     Récupère directement les données d'une source par son ID (format 'NC-XXX')
     """
     from langchain_community.vectorstores import Chroma
     from backend.embed import get_embedding_model
-    from config import get_model_id, DEFAULT_EMBEDDING_MODEL_KEY
+    from config import get_model_id, DEFAULT_EMBEDDING_MODEL_KEY, DB_DIR
+    
+    # Utiliser la configuration centralisée si aucun db_dir n'est fourni
+    if db_dir is None:
+        db_dir = DB_DIR
     
     # Extraire le numéro si l'ID est au format 'NC-XXX'
     search_id = nc_id
