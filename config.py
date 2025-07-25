@@ -28,9 +28,10 @@ DATABASE_PATH_STR = str(DATABASE_PATH)
 # CONFIGURATION DES MODÈLES IA
 # ========================================
 AVAILABLE_EMBEDDING_MODELS = {
-    "qwen_base": "dengcao/Qwen3-Embedding-0.6B:f16",
-    "dengcao_qwen3_4b": "dengcao/Qwen3-Embedding-4B:q5_K_M",
-    "snowflake2": "snowflake-arctic-embed2:latest"
+    "qwen_base": "dengcao/Qwen3-Embedding-0.6B:f16",           # PC performant - Haute qualité
+    "nomic_moe": "toshk0/nomic-embed-text-v2-moe",            # PC classique - Optimisé
+    "dengcao_qwen3_4b": "dengcao/Qwen3-Embedding-4B:q5_K_M",  # Alternative haute performance
+    "snowflake2": "snowflake-arctic-embed2:latest"            # Alternative expérimentale
     # Ajoutez d'autres modèles que vous voulez tester ici
 }
 

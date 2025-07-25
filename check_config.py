@@ -4,13 +4,15 @@
 Script de vérification de la c            else:
                 print("❌ Dossier ChromaDB existe mais est vide")
                 print("   🔥 OBLIGATOIRE: Exécutez: cd backend && python embed.py \"nom_du_modèle\"")
-                print("   📝 Exemple: python embed.py \"dengcao/Qwen3-Embedding-0.6B:f16\"")
+                print("   📝 Pour PC performant: python embed.py \"dengcao/Qwen3-Embedding-0.6B:f16\"")
+                print("   📝 Pour PC classique: python embed.py \"toshk0/nomic-embed-text-v2-moe\"")
                 print("   ⏱️ Cette opération prend 5-15 minutes")
                 all_good = False
         else:
             print("❌ ChromaDB non initialisé")
             print("   🔥 OBLIGATOIRE: Exécutez: cd backend && python embed.py \"nom_du_modèle\"")
-            print("   📝 Exemple: python embed.py \"dengcao/Qwen3-Embedding-0.6B:f16\"")
+            print("   📝 Pour PC performant: python embed.py \"dengcao/Qwen3-Embedding-0.6B:f16\"")
+            print("   📝 Pour PC classique: python embed.py \"toshk0/nomic-embed-text-v2-moe\"")
             print("   ⏱️ Cette opération prend 5-15 minutes")
             all_good = Falseon du projet RAG 8D
 Utilise ce script pour diagnostiquer les chemins et la configuration.

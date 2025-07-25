@@ -152,16 +152,37 @@ ollama pull phi4-reasoning:plus
 ```
 
 #### Modèles d'embedding (obligatoires pour tous) :
+
+**⚠️ CHOISIR SELON VOTRE CONFIGURATION PC :**
+
+##### Pour PC performant (16-32 GB RAM) - Modèle haute qualité :
 ```powershell
-# Modèles pour la recherche sémantique (peut prendre 5-15 minutes)
+# Modèle d'embedding haute performance (meilleure précision de recherche)
 ollama pull dengcao/Qwen3-Embedding-0.6B:f16
+```
+
+##### Pour PC classique/bureautique (8-16 GB RAM) - Modèle optimisé :
+```powershell
+# Modèle d'embedding léger et rapide (bon équilibre performance/qualité)
+ollama pull toshk0/nomic-embed-text-v2-moe
 ```
 
 **💡 Important :** Notez le nom exact du modèle affiché par `ollama list`, vous en aurez besoin pour `python embed.py`.
 
-**💡 Conseil :** Vous pouvez télécharger plusieurs modèles et changer dans l'interface selon vos besoins.
+**💡 Conseil :** Vous pouvez télécharger plusieurs modèles LLM, mais **un seul modèle d'embedding** à la fois.
 
-## 🧠 Guide de choix des modèles IA
+## 🧠 Guide de choix des modèles d'embedding
+
+| Configuration PC | Modèle d'embedding | Vitesse | Qualité | Utilisation RAM |
+|------------------|-------------------|---------|---------|-----------------|
+| **PC classique (8-16 GB)** | `toshk0/nomic-embed-text-v2-moe` | ⚡⚡ Rapide | ⭐⭐⭐ Bonne | 💾 Faible |
+| **PC performant (16+ GB)** | `dengcao/Qwen3-Embedding-0.6B:f16` | ⚡ Correct | ⭐⭐⭐⭐ Très bonne | 💾💾 Moyenne |
+
+**Recommandation :** Commencez par le modèle adapté à votre PC. Vous pourrez changer plus tard en recréant la base vectorielle.
+
+## 🔍 Comparaison des modèles d'embedding
+
+## 🧠 Guide de choix des modèles IA (LLM)
 
 | Modèle | Configuration PC | Vitesse | Qualité | Caractéristiques |
 |--------|------------------|---------|---------|------------------|
@@ -177,7 +198,11 @@ ollama list
 ```
 Vous devriez voir tous les modèles téléchargés.
 
-**📝 Important :** Notez le nom exact du modèle d'embedding (ex: `dengcao/Qwen3-Embedding-0.6B:f16`) car vous en aurez besoin pour la commande `python embed.py`.
+**📝 Important :** Notez le nom exact du modèle d'embedding selon votre choix :
+- **PC performant** : `dengcao/Qwen3-Embedding-0.6B:f16` 
+- **PC classique** : `toshk0/nomic-embed-text-v2-moe`
+
+Vous en aurez besoin pour la commande `python embed.py`.
 
 ### 4. Configurer le modèle dans le code
 **⚠️ IMPORTANT** : Selon le modèle choisi, il faut modifier le code pour utiliser le bon modèle.
@@ -217,6 +242,44 @@ llm = ChatOllamaWithThinking(
 
 4. Sauvegarder le fichier (`Ctrl+S`)
 
+### 5. Configurer le modèle d'embedding
+
+**⚠️ ÉTAPE IMPORTANTE** : Selon le modèle d'embedding choisi, vous devez modifier la configuration.
+
+#### Option A : PC performant (avec dengcao/Qwen3-Embedding-0.6B:f16)
+
+1. **Ouvrir le fichier `config.py`** dans VS Code
+2. **Vérifier que cette ligne est activée** :
+   ```python
+   AVAILABLE_EMBEDDING_MODELS = {
+       "qwen_base": "dengcao/Qwen3-Embedding-0.6B:f16",  # ← Modèle haute performance
+       "nomic_moe": "toshk0/nomic-embed-text-v2-moe",
+       # autres modèles...
+   }
+   
+   # Modèle par défaut pour PC performant
+   DEFAULT_EMBEDDING_MODEL_KEY = "qwen_base"
+   ```
+
+#### Option B : PC classique (avec toshk0/nomic-embed-text-v2-moe)
+
+1. **Ouvrir le fichier `config.py`** dans VS Code
+2. **Modifier cette ligne** :
+   ```python
+   AVAILABLE_EMBEDDING_MODELS = {
+       "qwen_base": "dengcao/Qwen3-Embedding-0.6B:f16",
+       "nomic_moe": "toshk0/nomic-embed-text-v2-moe",  # ← Modèle optimisé
+       # autres modèles...
+   }
+   
+   # Modèle par défaut pour PC classique
+   DEFAULT_EMBEDDING_MODEL_KEY = "nomic_moe"  # ← Changer ici
+   ```
+
+3. **Sauvegarder le fichier** (`Ctrl+S`)
+
+**💡 Rappel important :** Le modèle configuré ici doit correspondre exactement à celui que vous utiliserez dans `python embed.py "nom_du_modèle"`.
+
 ---
 
 ## 📊 Étape 5 : Configuration des bases de données
@@ -238,13 +301,25 @@ python -c "from backend.database import engine; from backend import models; mode
 # 1. Placer votre fichier CSV de non-conformités dans le dossier 'documents/'
 # 2. Créer les embeddings pour la recherche IA (dans le terminal) :
 cd backend
+
+# CHOISIR LA COMMANDE SELON VOTRE CONFIGURATION :
+
+# Option A : PC performant (modèle haute performance)
 python embed.py "dengcao/Qwen3-Embedding-0.6B:f16"
+
+# Option B : PC classique (modèle optimisé)
+python embed.py "toshk0/nomic-embed-text-v2-moe"
 ```
 
 **💡 Syntaxe importante :**
 - Le nom du modèle doit être exactement celui affiché par `ollama list`
-- Utilisez des guillemets autour du nom du modèle
-- Exemple : `python embed.py "dengcao/Qwen3-Embedding-0.6B:f16"`
+- **Utilisez le modèle correspondant à votre choix** dans l'étape 5 ci-dessus
+- Exemple pour PC performant : `python embed.py "dengcao/Qwen3-Embedding-0.6B:f16"`
+- Exemple pour PC classique : `python embed.py "toshk0/nomic-embed-text-v2-moe"`
+
+**⚠️ Cohérence obligatoire :**
+- Le modèle utilisé ici doit correspondre au `DEFAULT_EMBEDDING_MODEL_KEY` dans `config.py`
+- Si vous changez de modèle plus tard, vous devrez recréer toute la base vectorielle
 
 **💡 Pourquoi cette étape est obligatoire :**
 - La base vectorielle n'est pas incluse dans le code source (trop volumineuse)
@@ -438,9 +513,15 @@ ollama pull phi4-reasoning --insecure
 # Supprimer l'ancienne base vectorielle
 rmdir /s chroma_db
 
-# Recréer la base vectorielle (remplacez par votre modèle d'embedding)
+# Recréer la base vectorielle (CHOISIR selon votre configuration)
 cd backend
+
+# Pour PC performant :
 python embed.py "dengcao/Qwen3-Embedding-0.6B:f16"
+
+# Pour PC classique :
+python embed.py "toshk0/nomic-embed-text-v2-moe"
+
 cd ..
 ```
 
@@ -479,8 +560,15 @@ cd ..
 
 # ⚠️ IMPORTANT: Régénérer la base vectorielle si de nouvelles données sont disponibles
 cd backend
+
+# CHOISIR selon votre configuration :
+# Pour PC performant :
 python embed.py "dengcao/Qwen3-Embedding-0.6B:f16"
+# Pour PC classique :
+python embed.py "toshk0/nomic-embed-text-v2-moe"
+
 cd ..
+```
 ```
 
 **💡 Note** : La base vectorielle (ChromaDB) n'est pas versionnée. Après chaque `git pull`, vérifiez s'il y a de nouveaux fichiers dans `documents/` et relancez `python embed.py "nom_du_modèle"` si nécessaire.
