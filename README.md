@@ -1,270 +1,409 @@
-# 🚀 Assistant 8D - Système d'IA pour la Résolution de Problèmes
+# Assistant 8D – Application de résolution de problèmes
 
-<div align="center">
+Ce projet est une application web complète pour accompagner la démarche 8D (résolution de problèmes en 8 étapes) avec un assistant conversationnel intelligent basé sur l'IA.
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue)
-![Python](https://img.shields.io/badge/python-3.11+-blue)
-![React](https://img.shields.io/badge/react-18+-green)
-![License](https://img.shields.io/badge/license-MIT-green)
+## 🎯 Vue d'ensemble
 
-**Une application révolutionnaire qui transforme la démarche 8D grâce à l'intelligence artificielle**
+L'Assistant 8D est un outil complet d'aide à la résolution de non-conformités industrielles suivant la méthodologie 8D (8 Disciplines). Il combine une interface utilisateur moderne avec un assistant IA contextuel pour guider les utilisateurs à travers chaque étape du processus de résolution de problèmes.
 
-[🎯 Démo](#-aperçu-visuel) • [🚀 Fonctionnalités](#-fonctionnalités-clés) • [📖 Installation](README_INSTALLATION.md) • [🔧 Architecture](#-architecture-technique)
+### 🌟 Fonctionnalités principales
 
-</div>
+- **Interface 8D complète** : Formulaires guidés pour chaque étape (D0 à D8)
+- **Assistant IA conversationnel** : Chat intelligent avec suggestions contextuelles
+- **Recherche vectorielle** : Analyse de similarité avec des cas précédents
+- **Gestion des non-conformités** : Suivi complet du cycle de vie
+- **Scores de similarité** : Affichage des pourcentages de correspondance
+- **Suggestions automatiques** : Complétion intelligente des champs
+- **Export PDF** : Génération de rapports complets
+- **Historique des conversations** : Persistance des échanges
 
----
+## 🏗️ Architecture du système
 
-## 🎯 Vision du Projet
+### Frontend (React + Vite)
+- **Technologies** : React 18, Material-UI, Vite, React Router
+- **Composants principaux** :
+  - `Form8DAndChatInterface` : Interface principale combinant formulaires et chat
+  - `ChatAssistant` : Assistant conversationnel avec deux modes (CHAT/REQ)
+  - `ListeNonConformites` : Gestion et visualisation des NC
+  - `Dashboard` : Tableau de bord avec statistiques
 
-L'**Assistant 8D** révolutionne la gestion des non-conformités en combinant la méthodologie éprouvée 8D avec l'intelligence artificielle moderne. Notre système analyse votre contexte en temps réel, recherche dans votre historique de cas similaires, et vous guide intelligemment à chaque étape.
+### Backend (FastAPI + Python)
+- **Technologies** : FastAPI, LangChain, ChromaDB, Ollama
+- **Modules principaux** :
+  - `app.py` : Point d'entrée FastAPI avec API REST
+  - `backend/query.py` : Moteur de requêtes contextuelles
+  - `backend/retrieval.py` : Recherche vectorielle avec scores
+  - `backend/prompts.py` : Gestion des prompts spécialisés par étape
+  - `backend/get_vector_db.py` : Interface avec ChromaDB
 
-### 🏆 Pourquoi choisir l'Assistant 8D ?
+### Base de données vectorielle
+- **ChromaDB** : Stockage des embeddings des non-conformités
+- **Modèles d'embedding** : Support de plusieurs modèles (Qwen, Snowflake Arctic)
+- **Recherche sémantique** : Calcul de similarité avec scores
 
-- 🧠 **IA Contextuelle** : Suggestions personnalisées selon votre étape et vos données
-- 📊 **Recherche Sémantique** : Trouve automatiquement les cas similaires dans votre historique
-- ⚡ **Gain de Temps** : Réduction de 70% du temps de rédaction des 8D
-- 🎯 **Qualité Améliorée** : Guidance basée sur les meilleures pratiques de votre organisation
-- 🔒 **100% Local** : Vos données restent sur votre infrastructure
+## 🔧 Prérequis
 
----
+### Système
+- **Python** 3.10+ 
+- **Node.js** 18+
+- **Ollama** (serveur LLM local)
+- **Git** pour le clonage du projet
 
-## 🚀 Fonctionnalités Clés
+### Ressources matérielles recommandées
+- **RAM** : 8GB minimum, 16GB recommandé
+- **CPU** : Multi-core pour les embeddings
+- **Stockage** : 5GB pour les modèles et données
 
-### 🤖 Assistant IA Intelligent
-- **Suggestions contextuelles** adaptées à chaque étape du 8D
-- **Analyse prédictive** pour identifier les actions correctives optimales
-- **Détection automatique** des patterns dans vos non-conformités
+## 📦 Installation complète
 
-### 🔍 Recherche Sémantique Avancée
-- **Similarité intelligente** : trouve les cas pertinents même avec des mots différents
-- **Contextualisation par étape** : résultats adaptés à D0, D1, D2... D8
-- **Apprentissage continu** : plus vous utilisez le système, plus il devient précis
-
-### 💡 Complétion Automatique
-- **Pré-remplissage intelligent** des champs basé sur l'historique
-- **Suggestions d'équipes** selon le type de problème
-- **Propositions d'actions** issues de cas résolus similaires
-
-### 📈 Interface Moderne et Intuitive
-- **Design responsive** optimisé pour tous les écrans
-- **Workflow guidé** avec progression visuelle
-- **Chat intégré** pour dialogue naturel avec l'IA
-
----
-
-## 🎯 Aperçu Visuel
-
-### 🖥️ Interface Principale
-```
-┌─────────────────────────────────────────────────────────┐
-│  Assistant 8D - Non-Conformité NC-2025-001             │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  📋 D0: Préparation     ✅ Terminé                      │
-│  👥 D1: Équipe          🔄 En cours                     │
-│  🔍 D2: Description     ⏳ À faire                      │
-│  🚫 D3: Containment     ⏳ À faire                      │
-│                                                         │
-│  ┌─────────────────┐  ┌─────────────────────────────┐  │
-│  │   Formulaire    │  │      Assistant IA           │  │
-│  │                 │  │                             │  │
-│  │ Sponsor: [____] │  │ 💬 Basé sur des cas         │  │
-│  │ Chef: [_______] │  │    similaires, je           │  │
-│  │ Membres:        │  │    recommande...            │  │
-│  │ [____________]  │  │                             │  │
-│  │                 │  │ 🎯 Suggestions:             │  │
-│  │ [💡 Suggérer]   │  │    • Chef d'équipe          │  │
-│  └─────────────────┘  │    • Expertise requise      │  │
-│                       └─────────────────────────────┘  │
-└─────────────────────────────────────────────────────────┘
-```
-
-### 🧠 Moteur IA en Action
-```
-Problème: "Défaut de peinture sur carrosserie"
-         ↓
-    🔍 Recherche vectorielle
-         ↓
-📊 Cas similaires trouvés (5/847)
-    • NC-2024-156: Peinture porte arrière
-    • NC-2024-089: Défaut vernis carrosserie  
-    • NC-2023-234: Coulure peinture capot
-         ↓
-🤖 Analyse contextuelle
-         ↓
-💡 Suggestions personnalisées:
-    ✓ Équipe: Jean M. (expert peinture)
-    ✓ Containment: Inspection 100% ligne
-    ✓ Cause racine: Température cabine
-```
-
----
-
-## 🔧 Architecture Technique
-
-### 🏗️ Stack Technologique
-
-<div align="center">
-
-| Composant | Technologie | Rôle |
-|-----------|-------------|------|
-| 🎨 **Frontend** | React 18 + Vite | Interface utilisateur moderne |
-| ⚙️ **Backend** | FastAPI + Python 3.11+ | API REST haute performance |
-| 🧠 **IA/LLM** | Ollama (Local) | Modèles de langage locaux |
-| 🔍 **Recherche** | ChromaDB + LangChain | Base vectorielle et embeddings |
-| 💾 **Données** | SQLite + ChromaDB | Stockage relationnel et vectoriel |
-
-</div>
-
-### 🎯 Composants Métier
-
-- **🔍 Moteur de Recherche** (`retrieval.py`) : Recherche sémantique adaptative par étape
-- **🧠 Routeur Intelligent** (`routeur.py`) : Sélection automatique des prompts
-- **📋 Gestion 8D** (`models.py`) : Structure complète des non-conformités
-- **💬 Chat Assistant** (`query.py`) : Interface conversationnelle intelligente
-
----
-
-## 🎯 Cas d'Usage
-
-### 👥 Équipes Qualité
-- **Accélération** des analyses de causes racines
-- **Standardisation** des démarches de résolution
-- **Capitalisation** sur l'expérience des équipes
-
-### 🏭 Managers de Production
-- **Pilotage** en temps réel des non-conformités
-- **Prédiction** des délais de résolution
-- **Optimisation** des ressources d'intervention
-
-### 📊 Responsables Amélioration Continue
-- **Analyse de tendances** automatisée
-- **Identification** des récurrences
-- **Mesure d'efficacité** des actions correctives
-
----
-
-## 📊 Avantages Mesurables
-
-| Métrique | Avant | Avec Assistant 8D | Gain |
-|----------|-------|-------------------|------|
-| ⏱️ Temps de rédaction | 4-6 heures | 1-2 heures | **-70%** |
-| 🎯 Qualité des analyses | Variable | Standardisée | **+85%** |
-| 🔄 Réutilisation d'expérience | 10% | 90% | **+800%** |
-| 📈 Délai de résolution | 15 jours | 8 jours | **-47%** |
-
----
-
-## 🛠️ Installation & Démarrage
-
-### ⚡ Installation Rapide
-
-Pour une installation complète étape par étape, consultez le **[Guide d'Installation Détaillé](README_INSTALLATION.md)**.
-
+### 1. Clonage du projet
 ```bash
-# 1. Cloner le projet
-git clone <votre-repo-url>
-cd Assistant_NC
+git clone <repository-url>
+cd Test_Langchain
+```
 
-# 2. Backend Python
+### 2. Configuration du Backend
+
+#### 2.1 Environnement virtuel Python
+```powershell
+# Création de l'environnement virtuel
 python -m venv venv
-./venv/Scripts/activate
-pip install -r requirements.txt
 
-# 3. Frontend React
+# Activation (Windows)
+.\venv\Scripts\activate
+
+# Activation (Linux/Mac)
+source venv/bin/activate
+```
+
+#### 2.2 Installation des dépendances Python
+```bash
+pip install -r requirements.txt
+```
+
+#### 2.3 Configuration Ollama
+```bash
+# Installation d'Ollama
+# Télécharger depuis https://ollama.com/download
+
+# Téléchargement des modèles nécessaires
+ollama pull qwen3:14b
+ollama pull dengcao/Qwen3-Embedding-0.6B:f16
+ollama pull dengcao/Qwen3-Embedding-4B:q5_K_M
+
+# Démarrage du serveur Ollama
+ollama serve
+```
+
+### 3. Configuration du Frontend
+
+#### 3.1 Installation des dépendances Node.js
+```bash
 cd frontend
 npm install
-cd ..
-
-# 4. Modèles IA (choisir selon votre PC)
-ollama pull qwen3:4b          # PC standard
-ollama pull qwen3:14b         # PC performant (rapide)
-ollama pull phi4-reasoning:plus # PC performant (qualité max)
-
-# 5. Lancement
-python -m uvicorn app:app --reload --host 0.0.0.0 --port 8000
-# Dans un nouveau terminal:
-cd frontend && npm run dev
 ```
 
-### 🌐 Accès à l'Application
-- **Interface** : http://localhost:5173
-- **API** : http://localhost:8000/docs
+### 4. Génération de la base de données vectorielle
+
+#### 4.1 Préparation des données
+```bash
+# Vérifier la présence du fichier source
+ls documents/NC5_clean.csv
+```
+
+#### 4.2 Génération des embeddings
+```bash
+# Retour au répertoire racine
+cd ..
+
+# Génération de la base ChromaDB
+python embed.py
+```
+
+Cette étape peut prendre plusieurs minutes selon la taille des données.
+
+### 5. Configuration des modèles
+
+#### 5.1 Modèles d'embedding disponibles
+Le système supporte plusieurs modèles configurés dans `config.py` :
+
+```python
+AVAILABLE_EMBEDDING_MODELS = {
+    "qwen_base": "dengcao/Qwen3-Embedding-0.6B:f16",
+    "dengcao_qwen3_4b": "dengcao/Qwen3-Embedding-4B:q5_K_M",
+    "snowflake2": "snowflake-arctic-embed2:latest"
+}
+```
+
+#### 5.2 Modèle par défaut
+Le modèle `qwen_base` est utilisé par défaut. Pour changer :
+```python
+DEFAULT_EMBEDDING_MODEL_KEY = "dengcao_qwen3_4b"
+```
+
+## 🚀 Lancement de l'application
+
+### 1. Démarrage du backend
+```bash
+# Dans le répertoire racine
+python app.py
+```
+Le backend sera accessible sur `http://localhost:8000`
+
+### 2. Démarrage du frontend
+```bash
+# Dans le répertoire frontend
+cd frontend
+npm run dev
+```
+Le frontend sera accessible sur `http://localhost:5174`
+
+### 3. Vérification des services
+- **Backend API** : `http://localhost:8000/docs` (documentation Swagger)
+- **Frontend** : `http://localhost:5174`
+- **Ollama** : `http://localhost:11434` (API LLM)
+
+## 📋 Utilisation de l'application
+
+### 1. Interface principale
+
+#### Création d'une nouvelle non-conformité
+1. Accéder à l'interface principale
+2. Remplir l'étape D0 (Initialisation)
+3. Naviguer entre les étapes D1 à D8
+4. Utiliser l'assistant chat pour obtenir de l'aide
+
+#### Gestion des non-conformités existantes
+1. Accéder à "Liste des Non-Conformités"
+2. Sélectionner une NC existante
+3. Reprendre le processus 8D
+
+### 2. Assistant conversationnel
+
+#### Mode CHAT
+- Conversation libre avec l'assistant
+- Suggestions contextuelles selon l'étape
+- Historique des échanges persistant
+
+#### Mode REQ (Requête)
+- Recherche directe de NC similaires
+- Affichage des sources avec scores de similarité
+- Pas de conversation, uniquement recherche
+
+### 3. Fonctionnalités avancées
+
+#### Scores de similarité
+- Pourcentage de correspondance affiché pour chaque source
+- Calcul basé sur la similarité cosinus des embeddings
+- Aide à identifier les cas les plus pertinents
+
+#### Suggestions automatiques
+- Complétion intelligente des champs
+- Basée sur l'analyse des cas similaires
+- Application en un clic
+
+## 🔧 Configuration avancée
+
+### 1. Personnalisation des prompts
+Les prompts sont définis dans `backend/prompts.py` et peuvent être personnalisés par étape :
+
+```python
+# Exemple de prompt pour l'étape D2
+prompt_8D_2_template = """
+Tu es à la deuxième étape de la méthode 8D.
+Ta mission est de remplir un QQOQCCP...
+"""
+```
+
+### 2. Ajout de nouveaux modèles d'embedding
+1. Ajouter le modèle dans `config.py`
+2. Télécharger le modèle avec Ollama
+3. Régénérer les embeddings si nécessaire
+
+### 3. Personnalisation de l'interface
+- Couleurs définies dans `frontend/src/colors.js`
+- Composants Material-UI personnalisables
+- Thèmes adaptables
+
+## 🗂️ Structure détaillée du projet
+
+```
+Test_Langchain/
+├── README.md                 # Documentation principale
+├── requirements.txt          # Dépendances Python
+├── config.py                # Configuration des modèles
+├── app.py                   # Point d'entrée FastAPI
+├── embed.py                 # Génération des embeddings
+├── package.json             # Dépendances Node.js globales
+├── TODO.md                  # Tâches à réaliser
+│
+├── backend/                 # Code Python backend
+│   ├── __init__.py
+│   ├── query.py            # Moteur de requêtes
+│   ├── retrieval.py        # Recherche vectorielle
+│   ├── prompts.py          # Gestion des prompts
+│   ├── get_vector_db.py    # Interface ChromaDB
+│   ├── models.py           # Modèles de données
+│   ├── schemas.py          # Schémas Pydantic
+│   ├── crud.py             # Opérations CRUD
+│   ├── database.py         # Configuration BDD
+│   └── utils.py            # Utilitaires
+│
+├── frontend/               # Application React
+│   ├── package.json        # Dépendances Node.js
+│   ├── vite.config.js      # Configuration Vite
+│   ├── index.html          # Template HTML
+│   └── src/
+│       ├── main.jsx        # Point d'entrée React
+│       ├── App.jsx         # Composant principal
+│       ├── colors.js       # Définition des couleurs
+│       ├── components/     # Composants réutilisables
+│       │   ├── ChatAssistant.jsx
+│       │   ├── Dashboard.jsx
+│       │   └── ListeNonConformites.jsx
+│       ├── contexts/       # Contextes React
+│       │   └── Form8DContext.jsx
+│       └── pages/          # Pages/étapes 8D
+│           ├── D0Form.jsx
+│           ├── D1Form.jsx
+│           └── ... (D2 à D8)
+│
+├── documents/              # Données source
+│   └── NC5_clean.csv      # Non-conformités d'exemple
+│
+├── chroma_db/             # Base de données vectorielle
+│   ├── chroma.sqlite3     # Index SQLite
+│   └── collections/       # Collections d'embeddings
+│
+└── templates/             # Templates HTML (legacy)
+    └── index.html
+```
+
+## 🧪 Tests et débogage
+
+### Scripts de test inclus
+- `test_api_scores.py` : Test des scores de similarité
+- `test_vectorstore_access.py` : Test d'accès à ChromaDB
+- `test_similarity_scores.py` : Test des calculs de similarité
+
+### Débogage
+```bash
+# Test de l'API
+python test_api_scores.py
+
+# Test de la base vectorielle
+python test_vectorstore_access.py
+
+# Vérification des logs
+tail -f logs/app.log
+```
+
+## 📊 Métriques et monitoring
+
+### Logs disponibles
+- Requêtes API dans les logs FastAPI
+- Accès ChromaDB dans les logs backend
+- Erreurs frontend dans la console navigateur
+
+### Métriques surveillées
+- Temps de réponse des requêtes
+- Scores de similarité moyens
+- Utilisation des modèles d'embedding
+
+## 🔒 Sécurité et bonnes pratiques
+
+### Recommandations
+- Variables d'environnement pour les configurations sensibles
+- Validation des entrées utilisateur
+- Limitation du taux de requêtes
+- Authentification pour la production
+
+### Fichiers à protéger
+- `config.py` : Configuration des modèles
+- `chroma_db/` : Base de données vectorielle
+- `documents/` : Données source sensibles
+
+## 🚨 Dépannage
+
+### Problèmes courants
+
+#### Ollama non accessible
+```bash
+# Vérifier le statut
+curl http://localhost:11434/api/tags
+
+# Redémarrer Ollama
+ollama serve
+```
+
+#### ChromaDB corrompue
+```bash
+# Supprimer et régénérer
+rm -rf chroma_db/
+python embed.py
+```
+
+#### Erreurs de dépendances
+```bash
+# Réinstaller les dépendances
+pip install --force-reinstall -r requirements.txt
+```
+
+### Support et logs
+- Logs détaillés dans la console
+- Documentation API : `http://localhost:8000/docs`
+- Logs ChromaDB dans les sorties console
+
+## 🔄 Mise à jour des données
+
+### Ajout de nouvelles non-conformités
+1. Modifier `documents/NC5_clean.csv`
+2. Exécuter `python embed.py`
+3. Redémarrer l'application
+
+### Changement de modèle d'embedding
+1. Modifier `config.py`
+2. Télécharger le nouveau modèle avec Ollama
+3. Régénérer les embeddings
+
+## 📈 Performance et optimisation
+
+### Recommandations
+- Utiliser un SSD pour ChromaDB
+- Optimiser la taille des embeddings
+- Mettre en cache les requêtes fréquentes
+- Surveiller l'utilisation mémoire
+
+### Monitoring
+- Temps de réponse API
+- Utilisation CPU/RAM
+- Taille de la base vectorielle
+
+## 📝 Contribution
+
+### Développement
+1. Fork du projet
+2. Création d'une branche feature
+3. Tests des modifications
+4. Pull request avec description
+
+### Standards de code
+- Python : PEP 8
+- JavaScript : ESLint + Prettier
+- Documentation : Markdown
+
+## 📞 Support
+
+### Ressources
+- Documentation technique dans le code
+- Exemples dans `TODO.md`
+- Tests dans les fichiers `test_*.py`
+
+### Contact
+- **Auteur** : lrodembourg
+- **Projet** : Assistant 8D
+- **Version** : 1.0.0
 
 ---
 
-## 🚀 Roadmap
-
-### 📅 Version 1.0 (Actuelle)
-- ✅ Chat assistant contextuel
-- ✅ Recherche sémantique par étape
-- ✅ Interface 8D complète
-- ✅ Déploiement local
-
-### 📅 Version 1.1 (Q2 2025)
-- 🔄 Intégration ERP/PLM
-- 📊 Tableaux de bord analytiques
-- 🔔 Notifications intelligentes
-- 📱 Application mobile
-
-### 📅 Version 2.0 (Q3 2025)
-- 🤖 IA prédictive avancée
-- 🌐 Mode collaboratif multi-sites
-- 📈 Analytics avancés
-- 🔒 SSO entreprise
-
----
-
-## 🤝 Contribution
-
-Nous accueillons les contributions de la communauté ! 
-
-### 🛠️ Comment contribuer
-1. **Fork** le repository
-2. **Créer** une branche feature (`git checkout -b feature/AmazingFeature`)
-3. **Commit** vos changements (`git commit -m 'Add AmazingFeature'`)
-4. **Push** sur la branche (`git push origin feature/AmazingFeature`)
-5. **Ouvrir** une Pull Request
-
-### 🐛 Signaler un Bug
-Utilisez les [Issues GitHub](../../issues) avec le template de bug report.
-
----
-
-## 📞 Support & Contact
-
-### 💬 Communauté
-- **Discord** : [Rejoindre la communauté](#)
-- **Forum** : [Discussions & FAQ](#)
-- **Wiki** : [Documentation technique](#)
-
-### 🏢 Support Entreprise
-- **Email** : support@assistant8d.com
-- **Formation** : Programmes personnalisés disponibles
-- **Consulting** : Accompagnement à l'implémentation
-
----
-
-## 📜 Licence
-
-Ce projet est sous licence **MIT** - voir le fichier [LICENSE](LICENSE) pour plus de détails.
-
-### 🎯 Utilisation Commerciale
-- ✅ Utilisation en entreprise autorisée
-- ✅ Modification et redistribution libres
-- ✅ Support commercial disponible
-
----
-
-<div align="center">
-
-**🌟 Si ce projet vous aide, n'hésitez pas à lui donner une étoile ! ⭐**
-
-[⬆ Retour en haut](#-assistant-8d---système-dia-pour-la-résolution-de-problèmes)
-
----
-
-*Développé avec ❤️ par [lrodembourg](https://github.com/lrodembourg)*
-
-</div>
+*Ce README couvre l'ensemble du projet Assistant 8D. Pour des questions spécifiques, consulter la documentation technique dans le code ou les fichiers de test.*
